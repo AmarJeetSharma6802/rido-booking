@@ -1,0 +1,114 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  user
+  driver
+  admin
+}
+
+model User {
+  id           String  @id @default(uuid())
+  name         String
+  email        String  @unique
+  password     String
+  refreshToken String?
+
+  role Role @default(user)
+
+  drivers Driver[]
+  rides   Ride[]
+
+  emailOtp        String?
+  emailOtpExpires DateTime?
+  isVerified      Boolean   @default(false)
+
+  createdAt DateTime @default(now())
+}
+
+model Driver {
+  id          String  @id @default(uuid())
+  driverName  String
+  numberPlate String?
+
+  vehicleName String 
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  rides Ride[]
+
+  latitude  Float
+  longitude Float
+
+  isOnline Boolean @default(true)
+
+  rating      Float   @default(0)
+  driverImage String?
+
+  categoryId String
+  category   VehicleCategory @relation(fields: [categoryId], references: [id])
+
+  createdAt DateTime @default(now())
+}
+
+model VehicleCategory {
+  id        String @id @default(uuid())
+  name      String // Uber Go, XL, Bike
+  baseFare  Float
+  perKmRate Float
+  capacity  Int
+
+  drivers Driver[]
+  rides   Ride[]
+
+  createdAt DateTime @default(now())
+}
+
+enum RideStatus {
+  pending
+  ongoing
+  complete
+  cancelled
+}
+
+model Ride {
+  id String @id @default(uuid())
+
+  driverId String
+  driver   Driver @relation(fields: [driverId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  categoryId String
+  category   VehicleCategory @relation(fields: [categoryId], references: [id])
+
+  status RideStatus @default(pending)
+
+  otp        String?
+  otpExpiry  DateTime?
+  isVerified Boolean   @default(false)
+
+  pickup      String
+  destination String
+
+  pickupLatitude           Float?
+  pickupLongitude          Float?
+  destinationLatitude      Float?
+  destinationLongitude     Float?
+  estimatedDistanceKm      Float?
+  estimatedDurationMinutes Int?
+
+  estimatedFare Float?
+
+  createdAt DateTime @default(now())
+}
+
+// npx prisma migrate dev --name init
+// npx prisma generate
