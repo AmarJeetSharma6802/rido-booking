@@ -17,40 +17,56 @@ export default function AuthForm() {
 
   const router = useRouter();
 
-  const handleChange = (e: any) => {
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async () => {
-    let action = mode;
+    const action = mode;
 
-    const res = await fetch("/api/auth", {
-      method: "POST",
-      body: JSON.stringify({
-        ...form,
-        action,
-      }),
-    });
+    try {
+      const res = await fetch("/api/controllers/auth", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+            ...form,
+        //   name: form.name,
+        //   email: form.email,
+        //   password: form.password,
+        //   otp: form.otp,
+          action,
+        }),
+      });
 
-    const data = await res.json();
+      const rawResponse = await res.text();
+      const data = rawResponse ? JSON.parse(rawResponse) : {};
 
-    alert(data.message);
+      alert(data.message ?? "Something went wrong");
 
-    // 🔥 Flow control
-    if (mode === "register") {
-      setMode("verify-otp");
-    }
-
-    if (mode === "verify-otp") {
-      router.push("/dashboard");
-    }
-
-    if (mode === "login") {
-      if (data.user.role === "driver") {
-        router.push("/driver/dashboard");
-      } else {
-        router.push("/user/dashboard");
+      if (!res.ok) {
+        return;
       }
+
+      if (mode === "register") {
+        setMode("verify-otp");
+      }
+
+      if (mode === "verify-otp") {
+        router.push("/chooseRole");
+      }
+
+      if (mode === "login") {
+        if (data.user?.role === "driver") {
+          router.push("/driver");
+        } else {
+          router.push("/user");
+        }
+      }
+    } catch (error) {
+      console.error("Auth submit error:", error);
+      alert("Server response parse nahi ho paya. Console mein exact error check karo.");
     }
   };
 
@@ -62,7 +78,6 @@ export default function AuthForm() {
         {mode === "verify-otp" && "Verify OTP"}
       </h2>
 
-      {/* REGISTER */}
       {mode === "register" && (
         <input
           name="name"
@@ -72,7 +87,6 @@ export default function AuthForm() {
         />
       )}
 
-      {/* EMAIL + PASSWORD */}
       {(mode === "login" || mode === "register") && (
         <>
           <input
@@ -92,7 +106,6 @@ export default function AuthForm() {
         </>
       )}
 
-      {/* OTP */}
       {mode === "verify-otp" && (
         <>
           <input
@@ -111,7 +124,6 @@ export default function AuthForm() {
         </>
       )}
 
-      {/* BUTTON */}
       <button
         onClick={handleSubmit}
         className="bg-blue-500 text-white w-full p-2 rounded"
@@ -121,10 +133,9 @@ export default function AuthForm() {
         {mode === "verify-otp" && "Verify OTP"}
       </button>
 
-      {/* SWITCH LINKS */}
       {mode === "login" && (
         <p className="text-sm text-center">
-          Don’t have an account?{" "}
+          Don't have an account?{" "}
           <span
             className="text-blue-600 cursor-pointer"
             onClick={() => setMode("register")}

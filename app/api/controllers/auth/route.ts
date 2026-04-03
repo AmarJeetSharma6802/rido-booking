@@ -146,7 +146,7 @@ if (!isValid) {
     );
   }
 
-  // 🔐 Password check
+  // ðŸ” Password check
   const isMatch = await bcrypt.compare(password, user.password);
 
   if (!isMatch) {
@@ -205,6 +205,8 @@ if (!isValid) {
   return response;
 }
 
+return NextResponse.json(
+  { message: "Invalid action" },
+  { status: 400 }
+);
 }
-
-
