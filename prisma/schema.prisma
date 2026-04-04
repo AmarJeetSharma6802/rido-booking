@@ -31,6 +31,20 @@ model User {
   createdAt DateTime @default(now())
 }
 
+model VehicleCategory {
+  id        String @id @default(uuid())
+  name      String // Uber Go, XL, Bike
+  baseFare  Float
+  perKmRate Float
+  capacity  Int
+
+  drivers Driver[]
+  rides   Ride[]
+
+  createdAt DateTime @default(now())
+}
+
+
 model Driver {
   id          String  @id @default(uuid())
   driverName  String
@@ -57,18 +71,6 @@ model Driver {
   createdAt DateTime @default(now())
 }
 
-model VehicleCategory {
-  id        String @id @default(uuid())
-  name      String // Uber Go, XL, Bike
-  baseFare  Float
-  perKmRate Float
-  capacity  Int
-
-  drivers Driver[]
-  rides   Ride[]
-
-  createdAt DateTime @default(now())
-}
 
 enum RideStatus {
   pending

@@ -31,11 +31,11 @@ export default function AuthForm() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-            ...form,
-        //   name: form.name,
-        //   email: form.email,
-        //   password: form.password,
-        //   otp: form.otp,
+          ...form,
+          //   name: form.name,
+          //   email: form.email,
+          //   password: form.password,
+          //   otp: form.otp,
           action,
         }),
       });
@@ -64,9 +64,18 @@ export default function AuthForm() {
           router.push("/user");
         }
       }
+
+      setForm({
+        name: "",
+        email: "",
+        password: "",
+        otp: "",
+      });
     } catch (error) {
       console.error("Auth submit error:", error);
-      alert("Server response parse nahi ho paya. Console mein exact error check karo.");
+      alert(
+        "Server response parse nahi ho paya. Console mein exact error check karo.",
+      );
     }
   };
 
@@ -83,6 +92,7 @@ export default function AuthForm() {
           name="name"
           placeholder="Full Name"
           onChange={handleChange}
+          value={form.name}
           className="w-full border p-2"
         />
       )}
@@ -92,6 +102,7 @@ export default function AuthForm() {
           <input
             name="email"
             placeholder="Email"
+            value={form.email}
             onChange={handleChange}
             className="w-full border p-2"
           />
@@ -99,6 +110,7 @@ export default function AuthForm() {
           <input
             name="password"
             type="password"
+            value={form.password}
             placeholder="Password"
             onChange={handleChange}
             className="w-full border p-2"
@@ -111,12 +123,14 @@ export default function AuthForm() {
           <input
             name="email"
             placeholder="Email"
+            value={form.email}
             onChange={handleChange}
             className="w-full border p-2"
           />
 
           <input
             name="otp"
+            value={form.otp}
             placeholder="Enter OTP"
             onChange={handleChange}
             className="w-full border p-2"

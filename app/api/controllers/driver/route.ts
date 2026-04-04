@@ -1,16 +1,17 @@
 import prisma from "@/app/api/db/primsa";
 import { NextResponse } from "next/server";
 import { authUser } from "@/app/api/middleware/auth.middleware";
+
 import { uploadBuffer } from "@/app/api/utils/cloudinary";
 
-interface driverTypes {
-  driverName: string;
-  numberPlate?: string;
-  isOnline?: boolean;
-  rating?: number;
-  categoryId: string;
-  vehicleName?:string
-}
+// interface driverTypes {
+//   driverName: string;
+//   numberPlate?: string;
+//   isOnline?: boolean;
+//   rating?: number;
+//   categoryId: string;
+//   vehicleName:string
+// }
 
 export async function POST(req: Request) {
   try {
@@ -30,8 +31,7 @@ export async function POST(req: Request) {
     const isOnline = formData.get("isOnline") === "true" ? true : false;
     const rating = Number(formData.get("rating"));
     const driverImage = formData.get("driverImage") as File;
-    const vehicleName = formData.get("vehicleName") as string; 
-
+    const vehicleName = formData.get("vehicleName") as string
     // const tmp = path.join(os.tmpdir(), driverImage.name);
     // await fs.writeFile(tmp, Buffer.from(await driverImage.arrayBuffer()));
     // const uploaded = await uploadFile(tmp);
@@ -69,6 +69,11 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+    
+     await prisma.user.update({
+      where: { id: user.id },
+      data: { role: "driver" },
+    });
 
     const driver = await prisma.driver.create({
       data: {

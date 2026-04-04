@@ -65,7 +65,9 @@ if (!user.emailOtp || user.emailOtpExpires! < new Date()) {
   );
 }
 
-const isValid = await bcrypt.compare(otp, user.emailOtp);
+const cleanOtp = otp?.trim();
+
+const isValid = await bcrypt.compare(cleanOtp, user.emailOtp);
 
 if (!isValid) {
     return NextResponse.json({ message: "Invalid OTP"  },{status:400});

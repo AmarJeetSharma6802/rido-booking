@@ -1,5 +1,11 @@
 import {v2 as cloudinary,UploadApiResponse,UploadApiErrorResponse,} from "cloudinary";
 
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_NAME,
+  api_key: process.env.API_KEY,
+  api_secret: process.env.API_SECRET,
+});
+
 export const uploadBuffer = async (file: File, folder = "rido") => {
   const buffer = Buffer.from(await file.arrayBuffer());
 
