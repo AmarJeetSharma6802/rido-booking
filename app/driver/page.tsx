@@ -8,13 +8,27 @@ interface Category {
   name: string;
 }
 
+interface drvierInterface {
+  categoryId: string;
+    vehicleName: string;
+    numberPlate: string;
+    driverName: string;
+    driverImage: File | null;
+}
+const [form, setForm] = useState<drvierInterface>({
+    categoryId: "",
+    vehicleName: "",
+    numberPlate: "",
+    driverName: "",
+    driverImage: null,
+  });
+
 export default function BecomeDriver() {
   const router = useRouter();
   const [step, setStep] = useState<number>(1);
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
 
-  // 1. Form State with proper Types
   const [form, setForm] = useState<{
     categoryId: string;
     vehicleName: string;
@@ -41,7 +55,6 @@ export default function BecomeDriver() {
       .catch((err) => console.error("Error fetching categories:", err));
   }, []);
 
-  // 3. Handlers
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
   };
@@ -81,7 +94,7 @@ export default function BecomeDriver() {
 
       if (res.ok) {
         alert("Driver profile created successfully!");
-        router.push("/driver");
+        router.push("/");
       } else {
         alert(result.message || "Something went wrong");
       }
