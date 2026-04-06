@@ -15,13 +15,14 @@ interface drvierInterface {
     driverName: string;
     driverImage: File | null;
 }
-const [form, setForm] = useState<drvierInterface>({
-    categoryId: "",
-    vehicleName: "",
-    numberPlate: "",
-    driverName: "",
-    driverImage: null,
-  });
+
+// const [form, setForm] = useState<drvierInterface>({
+//     categoryId: "",
+//     vehicleName: "",
+//     numberPlate: "",
+//     driverName: "",
+//     driverImage: null,
+//   });
 
 export default function BecomeDriver() {
   const router = useRouter();
