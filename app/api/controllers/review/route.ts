@@ -1,0 +1,65 @@
+import prisma from "@/app/api/db/primsa";
+import { NextResponse } from "next/server";
+import { authUser } from "@/app/api/middleware/auth.middleware";
+
+export async function POST(req: Request) {
+  const user = await authUser();
+
+  if (!user) {
+    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+  }
+
+  const { rideId, categoryId, rating, reason } = await req.json();
+
+  if (!rideId || !categoryId) {
+    return NextResponse.json(
+      { message: "userId, driverId and categoryId required" },
+      { status: 400 },
+    );
+  }
+
+  const ride = await prisma.ride.findUnique({
+    where: { id: rideId },
+    include: {
+      driver: true,
+      user: true,
+    },
+  });
+
+  if (!ride) {
+    return NextResponse.json({ message: "Ride not found" }, { status: 404 });
+  }
+
+  if (ride.userId !== user.id) {
+    return NextResponse.json(
+      { message: "Unauthorized access" },
+      { status: 403 },
+    );
+  }
+
+  if (ride.status !== "complete") {
+    return NextResponse.json(
+      { message: "Ride not completed yet" },
+      { status: 400 },
+    );
+  }
+
+  const createReview = await prisma.review.create({
+    data: {
+      userId: user.id,
+      driverId: ride.driverId,
+      rideId: ride.id,
+      categoryId,
+      rating,
+      reason,
+    },
+  });
+
+  return NextResponse.json(
+    {
+      message: "Driver created successfully",
+      review: createReview,
+    },
+    { status: 201 },
+  );
+}
