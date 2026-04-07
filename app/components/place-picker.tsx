@@ -24,6 +24,9 @@ interface MapTilerFeature {
   center?: [number, number];
 }
 
+const DELHI_PROXIMITY = "77.2167,28.6315";
+const NCR_BBOX = "76.75,28.25,77.65,28.95";
+
 const fallbackPlaces: PlaceResult[] = [
   { label: "India Gate", address: "India Gate, New Delhi", lat: 28.6129, lng: 77.2295 },
   { label: "Connaught Place", address: "Connaught Place, New Delhi", lat: 28.6315, lng: 77.2167 },
@@ -33,22 +36,24 @@ const fallbackPlaces: PlaceResult[] = [
   { label: "New Delhi Railway Station", address: "New Delhi Railway Station", lat: 28.6429, lng: 77.2197 },
   { label: "Saket", address: "Saket, New Delhi", lat: 28.5245, lng: 77.2066 },
   { label: "Noida Sector 18", address: "Sector 18, Noida", lat: 28.5708, lng: 77.3261 },
+  { label: "Mahipalpur", address: "Mahipalpur, Vasant Vihar Tehsil, Delhi", lat: 28.5449, lng: 77.1257 },
+  { label: "Mahipalpur Bypass", address: "Mahipalpur Bypass, Delhi", lat: 28.5482, lng: 77.1269 },
+  { label: "Anand Vihar", address: "Anand Vihar, Delhi", lat: 28.646, lng: 77.3152 },
+  { label: "Chandni Chowk", address: "Chandni Chowk, Old Delhi", lat: 28.6562, lng: 77.2303 },
 ];
 
 async function geocodeAddress(value: string, maptilerKey?: string) {
-  const localMatch = fallbackPlaces.find((place) =>
-    `${place.label} ${place.address}`
-      .toLowerCase()
-      .includes(value.trim().toLowerCase()),
-  );
+  const localMatch = findLocalMatch(value);
 
   if (!maptilerKey) return localMatch ?? null;
 
   const response = await fetch(
-    `https://api.maptiler.com/geocoding/${encodeURIComponent(value)}.json?key=${maptilerKey}&limit=1`,
+    `https://api.maptiler.com/geocoding/${encodeURIComponent(value)}.json?key=${maptilerKey}&limit=5&country=in&proximity=${DELHI_PROXIMITY}&bbox=${NCR_BBOX}`,
   );
   const result = await response.json();
-  const feature = result.features?.[0] as MapTilerFeature | undefined;
+  const feature = (result.features as MapTilerFeature[] | undefined)?.find(
+    (item) => item.center?.length === 2 && isInNcr(item.center[1], item.center[0]),
+  );
 
   if (feature?.center?.length === 2) {
     return {
@@ -60,6 +65,22 @@ async function geocodeAddress(value: string, maptilerKey?: string) {
   }
 
   return localMatch ?? null;
+}
+
+function findLocalMatch(value: string) {
+  const normalizedValue = value.trim().toLowerCase();
+
+  return fallbackPlaces.find((place) => {
+    const normalizedPlace = `${place.label} ${place.address}`.toLowerCase();
+    return (
+      normalizedPlace.includes(normalizedValue) ||
+      normalizedValue.includes(place.label.toLowerCase())
+    );
+  });
+}
+
+function isInNcr(lat: number, lng: number) {
+  return lat >= 28.25 && lat <= 28.95 && lng >= 76.75 && lng <= 77.65;
 }
 
 export default function PlacePicker({
@@ -104,7 +125,7 @@ export default function PlacePicker({
 
       try {
         const response = await fetch(
-          `https://api.maptiler.com/geocoding/${encodeURIComponent(value)}.json?key=${maptilerKey}&limit=5`,
+          `https://api.maptiler.com/geocoding/${encodeURIComponent(value)}.json?key=${maptilerKey}&limit=5&country=in&proximity=${DELHI_PROXIMITY}&bbox=${NCR_BBOX}`,
         );
         const result = await response.json();
 
@@ -120,7 +141,9 @@ export default function PlacePicker({
 
         const validRemotePlaces = remotePlaces.filter(
           (place: PlaceResult) =>
-            typeof place.lat === "number" && typeof place.lng === "number",
+            typeof place.lat === "number" &&
+            typeof place.lng === "number" &&
+            isInNcr(place.lat, place.lng),
         );
 
         setSuggestions(

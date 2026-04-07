@@ -52,7 +52,6 @@ export default function DriverPickupPage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [locationQuery, setLocationQuery] = useState("");
-  const [animatedVehicle, setAnimatedVehicle] = useState<MapPoint | null>(null);
 
   const loadRide = async () => {
     try {
@@ -157,8 +156,17 @@ export default function DriverPickupPage() {
         throw new Error(result.message || "Status update failed");
       }
 
-      setRide(result.data);
-      setNotice(status === "ongoing" ? "Ride accepted and started." : "Ride updated.");
+      if (status === "complete" || status === "cancelled") {
+        setRide(null);
+        setNotice(
+          status === "complete"
+            ? "Ride complete ho gayi. Board next ride ke liye ready hai."
+            : "Ride cancel ho gayi. Board next ride ke liye ready hai.",
+        );
+      } else {
+        setRide(result.data);
+        setNotice("Ride accepted and started.");
+      }
     } catch (updateError) {
       const message =
         updateError instanceof Error ? updateError.message : "Status update failed";
@@ -174,54 +182,15 @@ export default function DriverPickupPage() {
   const destinationPoint = ride
     ? toMapPoint("Destination", ride.destinationLatitude, ride.destinationLongitude)
     : null;
-  const rawVehiclePoint =
+  const vehiclePoint =
     ride?.driver &&
     toMapPoint("Driver vehicle", ride.driver.latitude, ride.driver.longitude);
-  const vehiclePoint = animatedVehicle ?? rawVehiclePoint;
-
-  useEffect(() => {
-    if (!ride?.driver) {
-      setAnimatedVehicle(null);
-      return;
-    }
-
-    const start =
-      ride.status === "ongoing"
-        ? {
-            lat: ride.pickupLatitude ?? ride.driver.latitude,
-            lng: ride.pickupLongitude ?? ride.driver.longitude,
-          }
-        : { lat: ride.driver.latitude, lng: ride.driver.longitude };
-    const end =
-      ride.status === "ongoing"
-        ? {
-            lat: ride.destinationLatitude ?? start.lat,
-            lng: ride.destinationLongitude ?? start.lng,
-          }
-        : {
-            lat: ride.pickupLatitude ?? ride.driver.latitude,
-            lng: ride.pickupLongitude ?? ride.driver.longitude,
-          };
-
-    let frame = 0;
-    const totalFrames = 80;
-    const interval = window.setInterval(() => {
-      frame += 1;
-      const progress = Math.min(frame / totalFrames, 1);
-
-      setAnimatedVehicle({
-        label: "Driver moving",
-        lat: start.lat + (end.lat - start.lat) * progress,
-        lng: start.lng + (end.lng - start.lng) * progress,
-      });
-
-      if (progress >= 1) {
-        window.clearInterval(interval);
-      }
-    }, 120);
-
-    return () => window.clearInterval(interval);
-  }, [ride]);
+  const vehicleTargetPoint =
+    ride?.driver && ride.status === "ongoing"
+      ? toMapPoint("Destination", ride.destinationLatitude, ride.destinationLongitude)
+      : ride?.driver
+        ? toMapPoint("Pickup", ride.pickupLatitude, ride.pickupLongitude)
+        : null;
 
   return (
     <main className="min-h-screen bg-[#f7f2ff] px-4 py-6 text-slate-950">
@@ -289,6 +258,9 @@ export default function DriverPickupPage() {
                 }
               }}
             />
+            <div className="rounded-2xl border border-violet-100 bg-violet-50 p-4 text-xs font-semibold text-violet-900">
+              Manual location select karne ke baad driver profile coordinates update hote hain. Agar map galat jagah dikhe to suggestion select karo, sirf text type karke mat chhodo.
+            </div>
             <Link
               href="/driver"
               className="inline-flex justify-center rounded-2xl border border-violet-200 px-4 py-3 text-sm font-black text-violet-700 transition hover:bg-violet-50"
@@ -398,6 +370,8 @@ export default function DriverPickupPage() {
             pickup={pickupPoint}
             destination={destinationPoint}
             vehicle={vehiclePoint || null}
+            vehicleTarget={vehicleTargetPoint}
+            animateVehicleKey={ride?.driver ? `${ride.id}-${ride.status}` : null}
             className="min-h-[76vh] rounded-[32px]"
           />
         </section>

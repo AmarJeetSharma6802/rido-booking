@@ -5,6 +5,12 @@ import { getDistance } from "@/app/api/utils/distance";
 import { calculateFare } from "@/app/api/utils/fare";
 
 const NEARBY_DRIVER_RADIUS_KM = 25;
+const allowedRideTransitions = {
+  pending: ["ongoing", "cancelled"],
+  ongoing: ["complete", "cancelled"],
+  complete: [],
+  cancelled: [],
+} as const;
 
 function toNumber(value: unknown) {
   const numberValue = Number(value);
@@ -47,11 +53,11 @@ export async function GET() {
       return NextResponse.json({ data: activeRide }, { status: 200 });
     }
 
-    const latestRide = await prisma.ride.findFirst({
+    const activeRide = await prisma.ride.findFirst({
       where: {
         userId: user.id,
         status: {
-          in: ["pending", "ongoing", "complete"],
+          in: ["pending", "ongoing"],
         },
       },
       include: {
@@ -64,7 +70,7 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ data: latestRide }, { status: 200 });
+    return NextResponse.json({ data: activeRide }, { status: 200 });
   } catch {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
@@ -252,9 +258,19 @@ export async function PUT(req: Request) {
       return NextResponse.json({ message: "Ride not found" }, { status: 404 });
     }
 
-    if (ride.status === "complete") {
+    const nextStatus = status as keyof typeof allowedRideTransitions;
+    const currentStatus = ride.status as keyof typeof allowedRideTransitions;
+
+    if (!allowedRideTransitions[currentStatus].includes(nextStatus as never)) {
       return NextResponse.json(
-        { message: "Completed ride cannot be changed" },
+        {
+          message:
+            ride.status === "complete"
+              ? "Completed ride cannot be started again"
+              : ride.status === "cancelled"
+                ? "Cancelled ride cannot be changed"
+                : `Ride cannot move from ${ride.status} to ${status}`,
+        },
         { status: 400 },
       );
     }

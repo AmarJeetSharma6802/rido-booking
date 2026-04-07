@@ -168,7 +168,6 @@ export default function UserRidePage() {
     reason: "late_arrival",
   });
   const [complaintMessage, setComplaintMessage] = useState("");
-  const [animatedVehicle, setAnimatedVehicle] = useState<MapPoint | null>(null);
 
   const loadRide = async () => {
     const rideResponse = await fetch("/api/controllers/rider/createAndupdate");
@@ -237,7 +236,7 @@ export default function UserRidePage() {
     ? toMapPoint("Destination", ride.destinationLatitude, ride.destinationLongitude)
     : toMapPoint(destination.label, destination.lat, destination.lng);
 
-  const rawVehiclePoint =
+  const vehiclePoint =
     ride?.driver &&
     toMapPoint(
       `${ride.driver.driverName}'s vehicle`,
@@ -245,51 +244,12 @@ export default function UserRidePage() {
       ride.driver.longitude,
     );
 
-  const vehiclePoint = animatedVehicle ?? rawVehiclePoint;
-
-  useEffect(() => {
-    if (!ride?.driver) {
-      setAnimatedVehicle(null);
-      return;
-    }
-
-    const start =
-      ride.status === "ongoing"
-        ? {
-            lat: ride.pickupLatitude ?? ride.driver.latitude,
-            lng: ride.pickupLongitude ?? ride.driver.longitude,
-          }
-        : { lat: ride.driver.latitude, lng: ride.driver.longitude };
-    const end =
-      ride.status === "ongoing"
-        ? {
-            lat: ride.destinationLatitude ?? start.lat,
-            lng: ride.destinationLongitude ?? start.lng,
-          }
-        : {
-            lat: ride.pickupLatitude ?? ride.driver.latitude,
-            lng: ride.pickupLongitude ?? ride.driver.longitude,
-          };
-
-    let frame = 0;
-    const totalFrames = 80;
-    const interval = window.setInterval(() => {
-      frame += 1;
-      const progress = Math.min(frame / totalFrames, 1);
-
-      setAnimatedVehicle({
-        label: `${ride.driver?.driverName ?? "Driver"} moving`,
-        lat: start.lat + (end.lat - start.lat) * progress,
-        lng: start.lng + (end.lng - start.lng) * progress,
-      });
-
-      if (progress >= 1) {
-        window.clearInterval(interval);
-      }
-    }, 120);
-
-    return () => window.clearInterval(interval);
-  }, [ride]);
+  const vehicleTargetPoint =
+    ride?.driver && ride.status === "ongoing"
+      ? toMapPoint("Destination", ride.destinationLatitude, ride.destinationLongitude)
+      : ride?.driver
+        ? toMapPoint("Pickup", ride.pickupLatitude, ride.pickupLongitude)
+        : null;
 
   const useCurrentLocation = () => {
     setError(null);
@@ -678,6 +638,19 @@ export default function UserRidePage() {
                 }}
               />
 
+              <div className="grid gap-2 rounded-[22px] border border-violet-100 bg-violet-50 p-4 text-xs font-semibold text-violet-900">
+                <p>
+                  Pickup selected:{" "}
+                  {pickup.lat && pickup.lng
+                    ? `${pickup.address} (${pickup.lat.toFixed(4)}, ${pickup.lng.toFixed(4)})`
+                    : "not set"}
+                </p>
+                <p>
+                  Destination selected: {destination.address} (
+                  {destination.lat.toFixed(4)}, {destination.lng.toFixed(4)})
+                </p>
+              </div>
+
               <div className="grid gap-3">
                 <div className="flex items-end justify-between gap-3">
                   <div>
@@ -745,6 +718,8 @@ export default function UserRidePage() {
             pickup={pickupPoint}
             destination={destinationPoint}
             vehicle={vehiclePoint || null}
+            vehicleTarget={vehicleTargetPoint}
+            animateVehicleKey={ride?.driver ? `${ride.id}-${ride.status}` : null}
             className="min-h-[76vh] rounded-[32px]"
           />
         </section>

@@ -46,6 +46,10 @@ function hasCoordinates(
   );
 }
 
+function isReasonableMapPoint(point: MapPoint & { lat: number; lng: number }) {
+  return point.lat >= -85 && point.lat <= 85 && point.lng >= -180 && point.lng <= 180;
+}
+
 function routeFeature(coordinates: [number, number][]) {
   return {
     type: "Feature" as const,
@@ -224,7 +228,7 @@ export default function RideMap({
       const render = async () => {
         const bounds = new maplibregl.LngLatBounds();
 
-        if (hasCoordinates(pickup)) {
+        if (hasCoordinates(pickup) && isReasonableMapPoint(pickup)) {
           if (!pickupMarkerRef.current) {
             pickupMarkerRef.current = new maplibregl.Marker({
               element: createCircleMarker("#7c3aed", pickup.label),
@@ -237,7 +241,7 @@ export default function RideMap({
           pickupMarkerRef.current = null;
         }
 
-        if (hasCoordinates(destination)) {
+        if (hasCoordinates(destination) && isReasonableMapPoint(destination)) {
           if (!destinationMarkerRef.current) {
             destinationMarkerRef.current = new maplibregl.Marker({
               element: createCircleMarker("#ec4899", destination.label),
@@ -250,7 +254,7 @@ export default function RideMap({
           destinationMarkerRef.current = null;
         }
 
-        if (hasCoordinates(vehicle)) {
+        if (hasCoordinates(vehicle) && isReasonableMapPoint(vehicle)) {
           if (!vehicleMarkerRef.current) {
             vehicleMarkerRef.current = new maplibregl.Marker({
               element: createVehicleMarker(vehicle.label),
