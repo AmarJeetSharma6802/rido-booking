@@ -108,13 +108,13 @@ if (!isValid) {
  
   response.cookies.set("accessToken", accessToken, {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     path: "/",
   });
 
   response.cookies.set("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     path: "/",
   });
 
@@ -192,14 +192,14 @@ if (!isValid) {
 
   response.cookies.set("accessToken", accessToken, {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     sameSite: "lax",
   });
 
   response.cookies.set("refreshToken", refreshToken, {
     httpOnly: true,
-    secure: true,
+    secure: process.env.NODE_ENV === "production",
     path: "/",
     sameSite: "lax",
   });

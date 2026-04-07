@@ -1,10 +1,16 @@
-"use client"
+"use client";
+
 import { createContext, useContext, useState } from "react";
 
-const NavContext = createContext<any>(null);
+interface NavContextValue {
+  active: string | null;
+  setActive: React.Dispatch<React.SetStateAction<string | null>>;
+}
 
-export const NavProvider = ({ children }: any) => {
-  const [active, setActive] = useState(null);
+const NavContext = createContext<NavContextValue | null>(null);
+
+export const NavProvider = ({ children }: { children: React.ReactNode }) => {
+  const [active, setActive] = useState<string | null>(null);
 
   return (
     <NavContext.Provider value={{ active, setActive }}>

@@ -1,13 +1,6 @@
 import prisma from "@/app/api/db/primsa";
 import { cookies, headers } from "next/headers";
-
-interface JwtPayloadType {
-  user_id: string;
-}
-
-const jwt = require("jsonwebtoken") as {
-  verify: (token: string, secret: string) => JwtPayloadType | string;
-};
+import jwt from "jsonwebtoken";
 
 export const authUser = async () => {
   try {
@@ -36,7 +29,7 @@ export const authUser = async () => {
     }
 
     return user;
-  } catch (error) {
+  } catch {
     throw new Error("Invalid token");
   }
 };

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { authUser } from "@/app/api/middleware/auth.middleware";
 
 export async function POST(req: Request) {
+  try {
   const user = await authUser();
 
   if (!user) {
@@ -37,11 +38,18 @@ export async function POST(req: Request) {
 
   return NextResponse.json(
     {
-      message: "Driver created successfully",
+      message: "Complaint submitted successfully",
       createComplaint: createComplaint,
     },
     { status: 201 },
   );
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json(
+      { message: "Complaint submit nahi hui" },
+      { status: 500 },
+    );
+  }
 }
 
 
