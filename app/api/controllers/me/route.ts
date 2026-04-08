@@ -5,6 +5,7 @@ import { NextResponse } from "next/server";
 export async function GET() {
   try {
     const user = await authUser();
+    
     const driverProfile =
       user.role === "driver"
         ? await prisma.driver.findFirst({

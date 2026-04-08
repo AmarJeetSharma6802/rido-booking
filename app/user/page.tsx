@@ -519,10 +519,12 @@ export default function UserRidePage() {
                 Rider security code
               </p>
               <p className="mt-4 text-6xl font-black tracking-[0.32em]">
-                {ride.otp ?? "----"}
+                {ride.otp ?? "WAIT"}
               </p>
               <p className="mt-4 text-sm text-violet-50">
-                {ride.isVerified
+                {!ride.otp
+                  ? "Driver accept karega, tab OTP yahan show hogi."
+                  : ride.isVerified
                   ? "Driver ne OTP verify kar li. Trip officially start ho chuki hai."
                   : "OTP verify hone tak trip final start nahi hogi."}
               </p>

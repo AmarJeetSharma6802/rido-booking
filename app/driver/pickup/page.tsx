@@ -34,6 +34,7 @@ interface ActiveRide {
     name: string;
     email: string;
   };
+  requiresOtpStart?: boolean;
 }
 
 function toMapPoint(
@@ -136,7 +137,7 @@ export default function DriverPickupPage() {
     );
   };
 
-  const updateRideStatus = async (status: string) => {
+  const updateRideStatus = async (status?: string, action?: string) => {
     if (!ride) return;
 
     setActionLoading(true);
@@ -151,6 +152,7 @@ export default function DriverPickupPage() {
         body: JSON.stringify({
           rideId: ride.id,
           status,
+          action,
           otp: status === "ongoing" ? otpInput : undefined,
         }),
       });
@@ -172,7 +174,11 @@ export default function DriverPickupPage() {
       } else {
         setRide(result.data);
         setOtpInput("");
-        setNotice("OTP verify ho gayi. Trip officially start ho gayi.");
+        setNotice(
+          action === "accept"
+            ? "Ride accept ho gayi. Ab rider se OTP lo."
+            : "OTP verify ho gayi. Trip officially start ho gayi.",
+        );
       }
     } catch (updateError) {
       const message =
@@ -338,7 +344,17 @@ export default function DriverPickupPage() {
                 </div>
               </div>
 
-              {ride.status === "pending" ? (
+              {ride.status === "pending" && !ride.requiresOtpStart ? (
+                <button
+                  onClick={() => updateRideStatus(undefined, "accept")}
+                  disabled={actionLoading}
+                  className="w-full rounded-[22px] bg-violet-600 px-5 py-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:bg-violet-300"
+                >
+                  {actionLoading ? "Accepting..." : "Accept ride"}
+                </button>
+              ) : null}
+
+              {ride.status === "pending" && ride.requiresOtpStart ? (
                 <div className="rounded-[26px] border border-violet-100 bg-white p-5">
                   <p className="text-sm font-black text-slate-950">Enter rider OTP to start trip</p>
                   <p className="mt-1 text-xs font-semibold text-slate-500">
