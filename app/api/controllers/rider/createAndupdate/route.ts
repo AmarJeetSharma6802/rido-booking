@@ -5,6 +5,12 @@ import { getDistance } from "@/app/api/utils/distance";
 import { calculateFare } from "@/app/api/utils/fare";
 
 const NEARBY_DRIVER_RADIUS_KM = 25;
+const noStoreHeaders = {
+  "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+  Pragma: "no-cache",
+  Expires: "0",
+};
+
 const allowedRideTransitions = {
   pending: ["ongoing", "cancelled"],
   ongoing: ["complete", "cancelled"],
@@ -63,7 +69,10 @@ export async function GET() {
               }
             : null,
         },
-        { status: 200 },
+        {
+          status: 200,
+          headers: noStoreHeaders,
+        },
       );
     }
 
@@ -84,9 +93,46 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ data: activeRide }, { status: 200 });
+    const recentCompletedRide = await prisma.ride.findFirst({
+      where: {
+        userId: user.id,
+        status: "complete",
+      },
+      include: {
+        category: true,
+        driver: true,
+        user: true,
+        reviews: {
+          select: {
+            id: true,
+          },
+        },
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
+    return NextResponse.json(
+      {
+        data: activeRide,
+        completedRide: recentCompletedRide
+          ? {
+              ...recentCompletedRide,
+              hasReview: recentCompletedRide.reviews.length > 0,
+            }
+          : null,
+      },
+      {
+        status: 200,
+        headers: noStoreHeaders,
+      },
+    );
   } catch {
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { message: "Unauthorized" },
+      { status: 401, headers: noStoreHeaders },
+    );
   }
 }
 
@@ -116,12 +162,7 @@ export async function POST(req: Request) {
     const destinationLat = toNumber(destinationLatitude);
     const destinationLng = toNumber(destinationLongitude);
 
-    if (
-      pickupLat === null ||
-      pickupLng === null ||
-      destinationLat === null ||
-      destinationLng === null
-    ) {
+    if (pickupLat === null || pickupLng === null ||destinationLat === null ||destinationLng === null) {
       return NextResponse.json(
         { message: "Location permission ya destination location missing hai" },
         { status: 400 },
@@ -234,11 +275,17 @@ export async function POST(req: Request) {
         message: "Ride created successfully. Driver accept karega, phir OTP show hogi.",
         data: createRide,
       },
-      { status: 201 },
+      {
+        status: 201,
+        headers: noStoreHeaders,
+      },
     );
   } catch (error) {
     console.error(error);
-    return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
+    return NextResponse.json(
+      { message: "Unauthorized" },
+      { status: 401, headers: noStoreHeaders },
+    );
   }
 }
 
@@ -273,23 +320,6 @@ export async function PUT(req: Request) {
 
     if (!ride) {
       return NextResponse.json({ message: "Ride not found" }, { status: 404 });
-    }
-
-    const nextStatus = status as keyof typeof allowedRideTransitions;
-    const currentStatus = ride.status as keyof typeof allowedRideTransitions;
-
-    if (!allowedRideTransitions[currentStatus].includes(nextStatus as never)) {
-      return NextResponse.json(
-        {
-          message:
-            ride.status === "complete"
-              ? "Completed ride cannot be started again"
-              : ride.status === "cancelled"
-                ? "Cancelled ride cannot be changed"
-                : `Ride cannot move from ${ride.status} to ${status}`,
-        },
-        { status: 400 },
-      );
     }
 
     if (user.role === "driver") {
@@ -343,7 +373,10 @@ export async function PUT(req: Request) {
               requiresOtpStart: true,
             },
           },
-          { status: 200 },
+          {
+            status: 200,
+            headers: noStoreHeaders,
+          },
         );
       }
 
@@ -383,6 +416,23 @@ export async function PUT(req: Request) {
       );
     }
 
+    const nextStatus = status as keyof typeof allowedRideTransitions;
+    const currentStatus = ride.status as keyof typeof allowedRideTransitions;
+
+    if (!allowedRideTransitions[currentStatus].includes(nextStatus as never)) {
+      return NextResponse.json(
+        {
+          message:
+            ride.status === "complete"
+              ? "Completed ride cannot be started again"
+              : ride.status === "cancelled"
+                ? "Cancelled ride cannot be changed"
+                : `Ride cannot move from ${ride.status} to ${status}`,
+        },
+        { status: 400 },
+      );
+    }
+
     const updatedRide = await prisma.ride.update({
       where: {
         id: rideId,
@@ -407,14 +457,17 @@ export async function PUT(req: Request) {
         message: "Ride updated successfully",
         data: updatedRide,
       },
-      { status: 200 },
+      {
+        status: 200,
+        headers: noStoreHeaders,
+      },
     );
   } catch (error) {
     console.error(error);
 
     return NextResponse.json(
       { message: "Internal server error" },
-      { status: 500 },
+      { status: 500, headers: noStoreHeaders },
     );
   }
 }

@@ -12,9 +12,9 @@ export async function POST(req: Request) {
 
   const { rideId, categoryId, rating, reason } = await req.json();
 
-  if (!rideId || !categoryId) {
+  if (!rideId || !reason || typeof rating !== "number") {
     return NextResponse.json(
-      { message: "userId, driverId and categoryId required" },
+      { message: "rideId, rating and reason required" },
       { status: 400 },
     );
   }
@@ -45,12 +45,25 @@ export async function POST(req: Request) {
     );
   }
 
+  const existingReview = await prisma.review.findUnique({
+    where: {
+      rideId: ride.id,
+    },
+  });
+
+  if (existingReview) {
+    return NextResponse.json(
+      { message: "Review already submitted for this ride" },
+      { status: 400 },
+    );
+  }
+
   const createReview = await prisma.review.create({
     data: {
       userId: user.id,
       driverId: ride.driverId,
       rideId: ride.id,
-      categoryId,
+      categoryId: categoryId ?? ride.categoryId,
       rating,
       reason,
     },

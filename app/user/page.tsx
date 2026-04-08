@@ -31,6 +31,7 @@ interface ActiveRide {
     name: string;
     capacity: number;
   };
+  hasReview?: boolean;
   driver?: {
     id: string;
     driverName: string;
@@ -54,6 +55,18 @@ const defaultDestination: DestinationOption = {
   lat: 28.6129,
   lng: 77.2295,
 };
+
+const reviewReasonOptions = [
+  { value: "late_arrival", label: "Driver late aya" },
+  { value: "wrong_pickup", label: "Wrong pickup point" },
+  { value: "route_issue", label: "Route issue" },
+  { value: "rude_behavior", label: "Rude behavior" },
+  { value: "unsafe_driving", label: "Unsafe driving" },
+  { value: "driving_on_call", label: "Driving while on call" },
+  { value: "vehicle_not_clean", label: "Vehicle clean nahi tha" },
+  { value: "extra_money_demand", label: "Extra money demand" },
+  { value: "other", label: "Other issue" },
+] as const;
 
 function toMapPoint(
   label: string,
@@ -118,10 +131,18 @@ function vehicleIcon(name: string) {
 export default function UserRidePage() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [ride, setRide] = useState<ActiveRide | null>(null);
+  const [completedRide, setCompletedRide] = useState<ActiveRide | null>(null);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+  const [complaintSubmitting, setComplaintSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewReason, setReviewReason] =
+    useState<(typeof reviewReasonOptions)[number]["value"]>("late_arrival");
+  const [complaintMessage, setComplaintMessage] = useState("");
+  const [complaintSent, setComplaintSent] = useState(false);
   const [pickup, setPickup] = useState({
     address: "",
     lat: null as number | null,
@@ -131,13 +152,17 @@ export default function UserRidePage() {
   const [destination, setDestination] = useState<DestinationOption>(defaultDestination);
   const [destinationQuery, setDestinationQuery] = useState(defaultDestination.address);
   const [categoryId, setCategoryId] = useState("");
+  const completedRideId = completedRide?.id;
 
   const loadRide = async () => {
-    const rideResponse = await fetch("/api/controllers/rider/createAndupdate");
+    const rideResponse = await fetch("/api/controllers/rider/createAndupdate", {
+      cache: "no-store",
+    });
     const rideResult = await rideResponse.json();
 
     if (rideResponse.ok) {
       setRide(rideResult.data ?? null);
+      setCompletedRide(rideResult.completedRide ?? null);
     }
   };
 
@@ -178,6 +203,17 @@ export default function UserRidePage() {
     return () => window.clearInterval(interval);
   }, []);
 
+  useEffect(() => {
+    if (!completedRideId) {
+      return;
+    }
+
+    setReviewRating(5);
+    setReviewReason("late_arrival");
+    setComplaintMessage("");
+    setComplaintSent(false);
+  }, [completedRideId]);
+
   const routeDistanceKm =
     pickup.lat && pickup.lng
       ? getDistanceKm(pickup.lat, pickup.lng, destination.lat, destination.lng)
@@ -191,11 +227,13 @@ export default function UserRidePage() {
     eta: routeDistanceKm ? Math.max(3, Math.round(routeDistanceKm * 2.4)) : null,
   }));
 
-  const pickupPoint = ride
-    ? toMapPoint("Pickup", ride.pickupLatitude, ride.pickupLongitude)
+  const rideForDisplay = ride ?? completedRide;
+
+  const pickupPoint = rideForDisplay
+    ? toMapPoint("Pickup", rideForDisplay.pickupLatitude, rideForDisplay.pickupLongitude)
     : toMapPoint("Pickup", pickup.lat, pickup.lng);
-  const destinationPoint = ride
-    ? toMapPoint("Destination", ride.destinationLatitude, ride.destinationLongitude)
+  const destinationPoint = rideForDisplay
+    ? toMapPoint("Destination", rideForDisplay.destinationLatitude, rideForDisplay.destinationLongitude)
     : toMapPoint("Destination", destination.lat, destination.lng);
   const vehiclePoint =
     ride?.driver &&
@@ -257,6 +295,7 @@ export default function UserRidePage() {
     try {
       const response = await fetch("/api/controllers/rider/createAndupdate", {
         method: "POST",
+        cache: "no-store",
         headers: {
           "Content-Type": "application/json",
         },
@@ -278,6 +317,7 @@ export default function UserRidePage() {
       }
 
       setRide(result.data);
+      setCompletedRide(null);
       setNotice("Ride request send ho gayi. OTP driver ko start karne ke liye dena hoga.");
     } catch (requestError) {
       const message =
@@ -297,6 +337,7 @@ export default function UserRidePage() {
     try {
       const response = await fetch("/api/controllers/rider/createAndupdate", {
         method: "PUT",
+        cache: "no-store",
         headers: {
           "Content-Type": "application/json",
         },
@@ -323,10 +364,97 @@ export default function UserRidePage() {
     }
   };
 
+  const submitReview = async () => {
+    if (!completedRide) {
+      return;
+    }
+
+    setReviewSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/controllers/review", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          rideId: completedRide.id,
+          categoryId: completedRide.categoryId,
+          rating: reviewRating,
+          reason: reviewReason,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Review submit nahi hui");
+      }
+
+      setCompletedRide((currentRide) =>
+        currentRide ? { ...currentRide, hasReview: true } : currentRide,
+      );
+      setNotice("Review save ho gayi. Thanks, isse ride quality better hogi.");
+    } catch (reviewError) {
+      const message =
+        reviewError instanceof Error ? reviewError.message : "Review submit nahi hui";
+      setError(message);
+    } finally {
+      setReviewSubmitting(false);
+    }
+  };
+
+  const submitComplaint = async () => {
+    if (!completedRide?.driver?.id) {
+      setError("Driver information missing hai.");
+      return;
+    }
+
+    if (!complaintMessage.trim()) {
+      setError("Complaint message likho.");
+      return;
+    }
+
+    setComplaintSubmitting(true);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/controllers/complaint", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          driverId: completedRide.driver.id,
+          message: complaintMessage.trim(),
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Complaint submit nahi hui");
+      }
+
+      setComplaintMessage("");
+      setComplaintSent(true);
+      setNotice("Complaint team ko send ho gayi.");
+    } catch (complaintError) {
+      const message =
+        complaintError instanceof Error
+          ? complaintError.message
+          : "Complaint submit nahi hui";
+      setError(message);
+    } finally {
+      setComplaintSubmitting(false);
+    }
+  };
+
   return (
     <AppShell
       title="Book your ride"
-      subtitle="Google-map style search feel, map on top, live driver track, and trip OTP verification before the driver can start the ride."
+      subtitle="Map on top, live trip flow, driver acceptance plus OTP start, and completed trip feedback in one clean rider app."
     >
       <section className="overflow-hidden rounded-[34px] border border-violet-100 bg-white p-3 shadow-[0_26px_80px_rgba(88,28,135,0.14)]">
         <RideMap
@@ -334,7 +462,9 @@ export default function UserRidePage() {
           destination={destinationPoint}
           vehicle={vehiclePoint || null}
           vehicleTarget={vehicleTargetPoint}
-          animateVehicleKey={ride?.driver ? `${ride.id}-${ride.status}` : null}
+          animateVehicleKey={
+            ride?.driver ? `${ride.id}-${ride.status}-${ride.otp ?? "wait"}-${ride.isVerified}` : null
+          }
           className="min-h-[42vh] rounded-[28px] md:min-h-[52vh]"
         />
       </section>
@@ -529,6 +659,130 @@ export default function UserRidePage() {
                   : "OTP verify hone tak trip final start nahi hogi."}
               </p>
             </div>
+          </div>
+        </section>
+      ) : null}
+
+      {!ride && completedRide ? (
+        <section className="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
+          <div className="rounded-[34px] border border-emerald-100 bg-white p-5 shadow-[0_26px_80px_rgba(16,185,129,0.14)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-500">
+                  Trip completed
+                </p>
+                <h3 className="mt-2 text-3xl font-black">How was your ride?</h3>
+                <p className="mt-2 text-sm text-slate-600">
+                  Driver details aur trip summary yahan hai. Quick review se app aur real lagega.
+                </p>
+              </div>
+              <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700">
+                Rs. {completedRide.estimatedFare?.toFixed(0) ?? "-"}
+              </span>
+            </div>
+
+            <div className="mt-5 grid gap-3 rounded-[26px] bg-emerald-50 p-5 text-sm text-slate-700">
+              <p><span className="font-black text-slate-950">From:</span> {completedRide.pickup}</p>
+              <p><span className="font-black text-slate-950">To:</span> {completedRide.destination}</p>
+              <p><span className="font-black text-slate-950">Driver:</span> {completedRide.driver?.driverName ?? "-"}</p>
+              <p><span className="font-black text-slate-950">Vehicle:</span> {completedRide.driver?.vehicleName ?? "-"}</p>
+              <p><span className="font-black text-slate-950">Plate:</span> {completedRide.driver?.numberPlate ?? "-"}</p>
+              <p><span className="font-black text-slate-950">Distance:</span> {completedRide.estimatedDistanceKm?.toFixed(2) ?? "-"} km</p>
+            </div>
+
+            {completedRide.hasReview ? (
+              <div className="mt-5 rounded-[24px] border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
+                Review already submit ho chuki hai. Aap turant next ride book kar sakte ho.
+              </div>
+            ) : (
+              <>
+                <div className="mt-5">
+                  <p className="text-sm font-black text-slate-900">Driver rating</p>
+                  <div className="mt-3 flex flex-wrap gap-3">
+                    {[1, 2, 3, 4, 5].map((ratingValue) => (
+                      <button
+                        key={ratingValue}
+                        type="button"
+                        onClick={() => setReviewRating(ratingValue)}
+                        className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
+                          reviewRating === ratingValue
+                            ? "bg-emerald-600 text-white shadow-[0_16px_30px_rgba(5,150,105,0.24)]"
+                            : "border border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
+                        }`}
+                      >
+                        {ratingValue} / 5
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-5">
+                  <label className="text-sm font-black text-slate-900">
+                    Review reason
+                  </label>
+                  <select
+                    value={reviewReason}
+                    onChange={(event) =>
+                      setReviewReason(
+                        event.target.value as (typeof reviewReasonOptions)[number]["value"],
+                      )
+                    }
+                    className="mt-3 w-full rounded-[22px] border border-emerald-200 bg-white px-4 py-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-500"
+                  >
+                    {reviewReasonOptions.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <button
+                  onClick={submitReview}
+                  disabled={reviewSubmitting}
+                  className="mt-5 w-full rounded-[22px] bg-emerald-600 px-4 py-4 text-sm font-black text-white shadow-[0_18px_40px_rgba(5,150,105,0.22)] transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
+                >
+                  {reviewSubmitting ? "Submitting review..." : "Submit review"}
+                </button>
+              </>
+            )}
+          </div>
+
+          <div className="rounded-[34px] border border-amber-100 bg-white p-5 shadow-[0_26px_80px_rgba(217,119,6,0.12)]">
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-amber-500">
+              Help and complaint
+            </p>
+            <h3 className="mt-2 text-3xl font-black">Raise an issue</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Agar overcharge, rude behavior, ya pickup-route issue hua ho to yahan likh do.
+            </p>
+
+            <div className="mt-5 rounded-[26px] bg-amber-50 p-5 text-sm text-slate-700">
+              <p><span className="font-black text-slate-950">Assigned driver:</span> {completedRide.driver?.driverName ?? "-"}</p>
+              <p className="mt-2"><span className="font-black text-slate-950">Vehicle:</span> {completedRide.driver?.vehicleName ?? "-"}</p>
+              <p className="mt-2"><span className="font-black text-slate-950">Number plate:</span> {completedRide.driver?.numberPlate ?? "-"}</p>
+            </div>
+
+            {complaintSent ? (
+              <div className="mt-5 rounded-[24px] border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                Complaint submit ho gayi. Team is ride ko manually review kar sakti hai.
+              </div>
+            ) : null}
+
+            <textarea
+              value={complaintMessage}
+              onChange={(event) => setComplaintMessage(event.target.value)}
+              placeholder="Example: driver ne extra cash demand ki, wrong lane li, ya rude behavior tha..."
+              className="mt-5 min-h-40 w-full rounded-[24px] border border-amber-200 bg-white px-4 py-4 text-sm font-medium text-slate-900 outline-none transition focus:border-amber-500"
+            />
+
+            <button
+              onClick={submitComplaint}
+              disabled={complaintSubmitting}
+              className="mt-5 w-full rounded-[22px] bg-slate-950 px-4 py-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+            >
+              {complaintSubmitting ? "Submitting complaint..." : "Submit complaint"}
+            </button>
           </div>
         </section>
       ) : null}

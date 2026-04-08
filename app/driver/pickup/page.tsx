@@ -60,7 +60,9 @@ export default function DriverPickupPage() {
 
   const loadRide = async () => {
     try {
-      const response = await fetch("/api/controllers/rider/createAndupdate");
+      const response = await fetch("/api/controllers/rider/createAndupdate", {
+        cache: "no-store",
+      });
       const result = await response.json();
 
       if (!response.ok) {
@@ -146,6 +148,7 @@ export default function DriverPickupPage() {
     try {
       const response = await fetch("/api/controllers/rider/createAndupdate", {
         method: "PUT",
+        cache: "no-store",
         headers: {
           "Content-Type": "application/json",
         },
@@ -216,7 +219,11 @@ export default function DriverPickupPage() {
           destination={destinationPoint}
           vehicle={vehiclePoint || null}
           vehicleTarget={vehicleTargetPoint}
-          animateVehicleKey={ride?.driver ? `${ride.id}-${ride.status}` : null}
+          animateVehicleKey={
+            ride?.driver
+              ? `${ride.id}-${ride.status}-${ride.requiresOtpStart ? "accepted" : "new"}-${ride.isVerified}`
+              : null
+          }
           className="min-h-[42vh] rounded-[28px] md:min-h-[52vh]"
         />
       </section>
