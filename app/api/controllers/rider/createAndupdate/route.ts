@@ -17,6 +17,33 @@ function toNumber(value: unknown) {
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
+async function ensureRideOtp(ride: {
+  id: string;
+  status: string;
+  otp: string | null;
+  otpExpiry: Date | null;
+}) {
+  if (ride.status !== "pending" || ride.otp) {
+    return ride;
+  }
+
+  const otp = Math.floor(1000 + Math.random() * 9000).toString();
+
+  return prisma.ride.update({
+    where: { id: ride.id },
+    data: {
+      otp,
+      otpExpiry: new Date(Date.now() + 15 * 60 * 1000),
+      isVerified: false,
+    },
+    include: {
+      category: true,
+      driver: true,
+      user: true,
+    },
+  });
+}
+
 export async function GET() {
   try {
     const user = await authUser();
@@ -80,7 +107,9 @@ export async function GET() {
       },
     });
 
-    return NextResponse.json({ data: activeRide }, { status: 200 });
+    const rideWithOtp = activeRide ? await ensureRideOtp(activeRide) : null;
+
+    return NextResponse.json({ data: rideWithOtp }, { status: 200 });
   } catch {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
