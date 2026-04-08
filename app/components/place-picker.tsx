@@ -24,6 +24,13 @@ interface MapTilerFeature {
   center?: [number, number];
 }
 
+interface NominatimResult {
+  display_name: string;
+  lat: string;
+  lon: string;
+  name?: string;
+}
+
 const DELHI_PROXIMITY = "77.2167,28.6315";
 const NCR_BBOX = "76.75,28.25,77.65,28.95";
 
@@ -45,6 +52,8 @@ const fallbackPlaces: PlaceResult[] = [
 async function geocodeAddress(value: string, maptilerKey?: string) {
   const localMatch = findLocalMatch(value);
 
+  const nominatimPlace = await geocodeWithNominatim(value);
+  if (nominatimPlace) return nominatimPlace;
   if (!maptilerKey) return localMatch ?? null;
 
   const response = await fetch(
@@ -65,6 +74,91 @@ async function geocodeAddress(value: string, maptilerKey?: string) {
   }
 
   return localMatch ?? null;
+}
+
+async function geocodeWithNominatim(value: string) {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
+        value,
+      )}&countrycodes=in&viewbox=76.75,28.95,77.65,28.25&bounded=1&limit=1&addressdetails=1`,
+    );
+    const result = (await response.json()) as NominatimResult[];
+    const item = result[0];
+
+    if (!item) return null;
+
+    const lat = Number(item.lat);
+    const lng = Number(item.lon);
+
+    if (!Number.isFinite(lat) || !Number.isFinite(lng) || !isInNcr(lat, lng)) {
+      return null;
+    }
+
+    return {
+      label: item.name ?? item.display_name.split(",")[0] ?? value,
+      address: item.display_name,
+      lat,
+      lng,
+    };
+  } catch {
+    return null;
+  }
+}
+
+async function searchPlaces(value: string, maptilerKey?: string, localMatches: PlaceResult[] = []) {
+  try {
+    const response = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(
+        value,
+      )}&countrycodes=in&viewbox=76.75,28.95,77.65,28.25&bounded=1&limit=6&addressdetails=1`,
+    );
+    const result = (await response.json()) as NominatimResult[];
+    const suggestions = result
+      .map((item) => ({
+        label: item.name ?? item.display_name.split(",")[0] ?? value,
+        address: item.display_name,
+        lat: Number(item.lat),
+        lng: Number(item.lon),
+      }))
+      .filter(
+        (item) =>
+          Number.isFinite(item.lat) &&
+          Number.isFinite(item.lng) &&
+          isInNcr(item.lat, item.lng),
+      );
+
+    if (suggestions.length) return suggestions;
+  } catch {
+    // Fall through to other providers.
+  }
+
+  if (!maptilerKey) return localMatches.slice(0, 6);
+
+  try {
+    const response = await fetch(
+      `https://api.maptiler.com/geocoding/${encodeURIComponent(value)}.json?key=${maptilerKey}&limit=6&country=in&proximity=${DELHI_PROXIMITY}&bbox=${NCR_BBOX}`,
+    );
+    const result = await response.json();
+    const remotePlaces =
+      result.features?.map((feature: MapTilerFeature) => ({
+        label: feature.text ?? feature.place_name ?? value,
+        address: feature.place_name ?? feature.text ?? value,
+        lat: feature.center?.[1],
+        lng: feature.center?.[0],
+      })) ?? [];
+
+    const validRemotePlaces = remotePlaces.filter(
+      (place: PlaceResult) =>
+        typeof place.lat === "number" &&
+        typeof place.lng === "number" &&
+        isInNcr(place.lat, place.lng),
+    );
+
+    return validRemotePlaces.length ? validRemotePlaces : localMatches.slice(0, 6);
+  } catch {
+    return localMatches.slice(0, 6);
+  }
 }
 
 function findLocalMatch(value: string) {
@@ -116,42 +210,15 @@ export default function PlacePicker({
         return;
       }
 
-      if (!maptilerKey) {
-        setSuggestions(localMatches.slice(0, 5));
-        return;
-      }
-
       setLoading(true);
 
       try {
-        const response = await fetch(
-          `https://api.maptiler.com/geocoding/${encodeURIComponent(value)}.json?key=${maptilerKey}&limit=5&country=in&proximity=${DELHI_PROXIMITY}&bbox=${NCR_BBOX}`,
-        );
-        const result = await response.json();
-
         if (ignore) return;
-
-        const remotePlaces =
-          result.features?.map((feature: MapTilerFeature) => ({
-            label: feature.text ?? feature.place_name ?? value,
-            address: feature.place_name ?? feature.text ?? value,
-            lat: feature.center?.[1],
-            lng: feature.center?.[0],
-          })) ?? [];
-
-        const validRemotePlaces = remotePlaces.filter(
-          (place: PlaceResult) =>
-            typeof place.lat === "number" &&
-            typeof place.lng === "number" &&
-            isInNcr(place.lat, place.lng),
-        );
-
-        setSuggestions(
-          validRemotePlaces.length ? validRemotePlaces : localMatches.slice(0, 5),
-        );
+        const places = await searchPlaces(value, maptilerKey, localMatches);
+        if (!ignore) setSuggestions(places);
       } catch {
         if (!ignore) {
-          setSuggestions(localMatches.slice(0, 5));
+          setSuggestions(localMatches.slice(0, 6));
         }
       } finally {
         if (!ignore) {

@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import RideMap, { MapPoint } from "@/app/components/ride-map";
+import AppShell from "@/app/components/app-shell";
 import PlacePicker from "@/app/components/place-picker";
+import RideMap, { MapPoint } from "@/app/components/ride-map";
 
 interface Category {
   id: string;
@@ -17,6 +18,8 @@ interface ActiveRide {
   pickup: string;
   destination: string;
   status: string;
+  otp: string | null;
+  isVerified: boolean;
   estimatedFare: number | null;
   estimatedDistanceKm: number | null;
   pickupLatitude: number | null;
@@ -38,54 +41,19 @@ interface ActiveRide {
   };
 }
 
-const destinations = [
-  { label: "India Gate", address: "India Gate, New Delhi", lat: 28.6129, lng: 77.2295 },
-  { label: "Connaught Place", address: "Connaught Place, New Delhi", lat: 28.6315, lng: 77.2167 },
-  { label: "Khan Market", address: "Khan Market, New Delhi", lat: 28.6006, lng: 77.2269 },
-  { label: "Cyber Hub", address: "Cyber Hub, Gurugram", lat: 28.495, lng: 77.0896 },
-    {
-    label: "Mahipalpur",
-    address: "Mahipalpur, New Delhi",
-    lat: 28.5449,
-    lng: 77.1257
-  },
-  {
-    label: "New Delhi Railway Station",
-    address: "New Delhi Railway Station, Delhi",
-    lat: 28.6436,
-    lng: 77.2197
-  },
-  {
-    label: "Anand Vihar Railway Station",
-    address: "Anand Vihar Railway Terminal, Delhi",
-    lat: 28.6460,
-    lng: 77.3152
-  },
-  {
-    label: "Hazrat Nizamuddin Railway Station",
-    address: "Hazrat Nizamuddin Railway Station, Delhi",
-    lat: 28.5880,
-    lng: 77.2540
-  },
-  {
-    label: "Chandni Chowk",
-    address: "Chandni Chowk, Old Delhi",
-    lat: 28.6562,
-    lng: 77.2303
-  }
-];
+type DestinationOption = {
+  label: string;
+  address: string;
+  lat: number;
+  lng: number;
+};
 
-const reviewReasons = [
-  "extra_money_demand",
-  "wrong_pickup",
-  "rude_behavior",
-  "unsafe_driving",
-  "driving_on_call",
-  "vehicle_not_clean",
-  "late_arrival",
-  "route_issue",
-  "other",
-];
+const defaultDestination: DestinationOption = {
+  label: "India Gate",
+  address: "India Gate, New Delhi",
+  lat: 28.6129,
+  lng: 77.2295,
+};
 
 function toMapPoint(
   label: string,
@@ -155,19 +123,14 @@ export default function UserRidePage() {
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [pickup, setPickup] = useState({
-    address: "Use current location",
+    address: "",
     lat: null as number | null,
     lng: null as number | null,
   });
   const [pickupQuery, setPickupQuery] = useState("");
-  const [destination, setDestination] = useState(destinations[0]);
-  const [destinationQuery, setDestinationQuery] = useState(destinations[0].address);
+  const [destination, setDestination] = useState<DestinationOption>(defaultDestination);
+  const [destinationQuery, setDestinationQuery] = useState(defaultDestination.address);
   const [categoryId, setCategoryId] = useState("");
-  const [reviewForm, setReviewForm] = useState({
-    rating: "5",
-    reason: "late_arrival",
-  });
-  const [complaintMessage, setComplaintMessage] = useState("");
 
   const loadRide = async () => {
     const rideResponse = await fetch("/api/controllers/rider/createAndupdate");
@@ -210,7 +173,7 @@ export default function UserRidePage() {
   useEffect(() => {
     const interval = window.setInterval(() => {
       loadRide().catch(() => null);
-    }, 6000);
+    }, 5000);
 
     return () => window.clearInterval(interval);
   }, []);
@@ -225,17 +188,15 @@ export default function UserRidePage() {
     fare: routeDistanceKm
       ? Math.round(category.baseFare + category.perKmRate * routeDistanceKm)
       : null,
-    eta: routeDistanceKm ? Math.max(3, Math.round(routeDistanceKm * 2.2)) : null,
+    eta: routeDistanceKm ? Math.max(3, Math.round(routeDistanceKm * 2.4)) : null,
   }));
 
   const pickupPoint = ride
     ? toMapPoint("Pickup", ride.pickupLatitude, ride.pickupLongitude)
-    : toMapPoint("You", pickup.lat, pickup.lng);
-
+    : toMapPoint("Pickup", pickup.lat, pickup.lng);
   const destinationPoint = ride
     ? toMapPoint("Destination", ride.destinationLatitude, ride.destinationLongitude)
-    : toMapPoint(destination.label, destination.lat, destination.lng);
-
+    : toMapPoint("Destination", destination.lat, destination.lng);
   const vehiclePoint =
     ride?.driver &&
     toMapPoint(
@@ -243,7 +204,6 @@ export default function UserRidePage() {
       ride.driver.latitude,
       ride.driver.longitude,
     );
-
   const vehicleTargetPoint =
     ride?.driver && ride.status === "ongoing"
       ? toMapPoint("Destination", ride.destinationLatitude, ride.destinationLongitude)
@@ -253,11 +213,11 @@ export default function UserRidePage() {
 
   const useCurrentLocation = () => {
     setError(null);
-    setNotice("Location permission maang rahe hain...");
+    setNotice("Detecting current pickup...");
 
     if (!navigator.geolocation) {
-      setError("Browser geolocation support nahi kar raha.");
       setNotice(null);
+      setError("Browser geolocation support nahi kar raha.");
       return;
     }
 
@@ -269,11 +229,11 @@ export default function UserRidePage() {
           lng: position.coords.longitude,
         });
         setPickupQuery("Current location");
-        setNotice("Pickup location set ho gayi.");
+        setNotice("Current pickup location set ho gayi.");
       },
       () => {
         setNotice(null);
-        setError("Location permission deny ho gayi. Ride book karne ke liye allow karo.");
+        setError("Location permission deny ho gayi. Address select ya current location allow karo.");
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
@@ -281,7 +241,7 @@ export default function UserRidePage() {
 
   const requestRide = async () => {
     if (!categoryId) {
-      setError("Category select karo.");
+      setError("Ride type select karo.");
       return;
     }
 
@@ -318,12 +278,10 @@ export default function UserRidePage() {
       }
 
       setRide(result.data);
-      setNotice("Ride request driver ko bhej di gayi.");
+      setNotice("Ride request send ho gayi. OTP driver ko start karne ke liye dena hoga.");
     } catch (requestError) {
       const message =
-        requestError instanceof Error
-          ? requestError.message
-          : "Ride create nahi hui";
+        requestError instanceof Error ? requestError.message : "Ride create nahi hui";
       setError(message);
     } finally {
       setSubmitting(false);
@@ -365,94 +323,36 @@ export default function UserRidePage() {
     }
   };
 
-  const submitReview = async () => {
-    if (!ride) return;
-
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/controllers/review", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          rideId: ride.id,
-          categoryId: ride.categoryId,
-          rating: Number(reviewForm.rating),
-          reason: reviewForm.reason,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Review submit nahi hua");
-      }
-
-      setNotice("Review submit ho gaya. Thank you!");
-    } catch (reviewError) {
-      const message =
-        reviewError instanceof Error ? reviewError.message : "Review submit nahi hua";
-      setError(message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const submitComplaint = async () => {
-    if (!ride?.driver || !complaintMessage.trim()) return;
-
-    setSubmitting(true);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/controllers/complaint", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          driverId: ride.driver.id,
-          message: complaintMessage,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.message || "Complaint submit nahi hui");
-      }
-
-      setComplaintMessage("");
-      setNotice("Complaint submit ho gayi.");
-    } catch (complaintError) {
-      const message =
-        complaintError instanceof Error
-          ? complaintError.message
-          : "Complaint submit nahi hui";
-      setError(message);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   return (
-    <main className="min-h-screen bg-[#f7f2ff] px-4 py-6 text-slate-950">
-      <div className="mx-auto grid max-w-7xl gap-5 lg:grid-cols-[440px,1fr]">
-        <section className="rounded-[34px] border border-violet-100 bg-white/95 p-5 shadow-[0_30px_90px_rgba(88,28,135,0.16)]">
-          <div className="rounded-[28px] bg-gradient-to-br from-violet-600 to-fuchsia-500 p-5 text-white">
-            <p className="text-xs font-semibold uppercase tracking-[0.28em] text-violet-100">
-              Ride App
-            </p>
-            <h1 className="mt-3 text-3xl font-black tracking-tight">
-              Book your ride
-            </h1>
-            <p className="mt-2 text-sm leading-6 text-violet-50">
-              Pickup real device location se set hoga. Driver tab online hoga to
-              nearest driver ko request assign hogi.
-            </p>
+    <AppShell
+      title="Book your ride"
+      subtitle="Google-map style search feel, map on top, live driver track, and trip OTP verification before the driver can start the ride."
+    >
+      <section className="overflow-hidden rounded-[34px] border border-violet-100 bg-white p-3 shadow-[0_26px_80px_rgba(88,28,135,0.14)]">
+        <RideMap
+          pickup={pickupPoint}
+          destination={destinationPoint}
+          vehicle={vehiclePoint || null}
+          vehicleTarget={vehicleTargetPoint}
+          animateVehicleKey={ride?.driver ? `${ride.id}-${ride.status}` : null}
+          className="min-h-[42vh] rounded-[28px] md:min-h-[52vh]"
+        />
+      </section>
+
+      <div className="grid gap-6 xl:grid-cols-[1.1fr,0.9fr]">
+        <section className="rounded-[34px] border border-violet-100 bg-white p-5 shadow-[0_26px_80px_rgba(88,28,135,0.14)]">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-violet-500">
+                Search panel
+              </p>
+              <h3 className="mt-2 text-2xl font-black">Pickup and destination</h3>
+            </div>
+            {routeDistanceKm ? (
+              <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-black text-violet-700">
+                {routeDistanceKm.toFixed(1)} km route
+              </span>
+            ) : null}
           </div>
 
           {error ? (
@@ -467,263 +367,169 @@ export default function UserRidePage() {
             </div>
           ) : null}
 
-          {loading ? (
-            <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
-              App data load ho raha hai...
+          <div className="mt-5 grid gap-4">
+            <PlacePicker
+              label="Pickup"
+              value={pickupQuery}
+              placeholder="Search pickup street, gali, landmark"
+              helper="Suggestion select karo ya Use this address dabao."
+              onQueryChange={(value) => {
+                setPickupQuery(value);
+                setPickup((current) => ({ ...current, address: value }));
+              }}
+              onPlaceSelect={(place) => {
+                setPickupQuery(place.address);
+                setPickup({
+                  address: place.address,
+                  lat: place.lat,
+                  lng: place.lng,
+                });
+              }}
+            />
+
+            <button
+              onClick={useCurrentLocation}
+              className="rounded-[22px] bg-slate-950 px-5 py-4 text-sm font-black text-white transition hover:bg-violet-950"
+            >
+              Use current pickup location
+            </button>
+
+            <PlacePicker
+              label="Destination"
+              value={destinationQuery}
+              placeholder="Search destination street, gali, landmark"
+              helper="Real street-level suggestions NCR area ke liye prefer kiye ja rahe hain."
+              onQueryChange={setDestinationQuery}
+              onPlaceSelect={(place) => {
+                setDestinationQuery(place.address);
+                setDestination(place);
+              }}
+            />
+
+            <div className="rounded-[24px] border border-violet-100 bg-violet-50 p-4 text-xs font-semibold text-violet-900">
+              <p>
+                Pickup selected:{" "}
+                {pickup.lat && pickup.lng
+                  ? `${pickup.address} (${pickup.lat.toFixed(4)}, ${pickup.lng.toFixed(4)})`
+                  : "not set"}
+              </p>
+              <p className="mt-2">
+                Destination selected: {destination.address} (
+                {destination.lat.toFixed(4)}, {destination.lng.toFixed(4)})
+              </p>
             </div>
-          ) : null}
-
-          {ride ? (
-            <div className="mt-5 space-y-4">
-              <div className="rounded-[26px] border border-violet-100 bg-violet-50 p-5">
-                <div className="flex items-start justify-between gap-4">
-                  <div>
-                    <p className="text-xs font-bold uppercase tracking-[0.22em] text-violet-500">
-                      Current ride
-                    </p>
-                    <p className="mt-2 text-3xl font-black capitalize text-slate-950">
-                      {ride.status}
-                    </p>
-                  </div>
-                  <span className="rounded-full bg-white px-3 py-1 text-xs font-bold text-violet-700 shadow-sm">
-                    Rs. {ride.estimatedFare?.toFixed(0) ?? "-"}
-                  </span>
-                </div>
-                <div className="mt-4 space-y-3 text-sm text-slate-700">
-                  <p>
-                    <span className="font-bold text-slate-950">From:</span>{" "}
-                    {ride.pickup}
-                  </p>
-                  <p>
-                    <span className="font-bold text-slate-950">To:</span>{" "}
-                    {ride.destination}
-                  </p>
-                  <p>
-                    <span className="font-bold text-slate-950">Driver:</span>{" "}
-                    {ride.driver?.driverName ?? "Finding driver"}
-                    {ride.driver?.vehicleName ? ` | ${ride.driver.vehicleName}` : ""}
-                  </p>
-                  <p>
-                    <span className="font-bold text-slate-950">Plate:</span>{" "}
-                    {ride.driver?.numberPlate ?? "-"}
-                  </p>
-                </div>
-              </div>
-
-              {ride.status !== "complete" ? (
-                <button
-                  onClick={cancelRide}
-                  disabled={submitting}
-                  className="w-full rounded-2xl border border-violet-200 px-4 py-3 text-sm font-bold text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
-                >
-                  {submitting ? "Updating..." : "Cancel ride"}
-                </button>
-              ) : (
-                <div className="space-y-4 rounded-[26px] border border-violet-100 bg-white p-4 shadow-sm">
-                  <div>
-                    <p className="text-sm font-black text-slate-950">
-                      Ride complete. Review driver
-                    </p>
-                    <div className="mt-3 grid grid-cols-2 gap-3">
-                      <select
-                        value={reviewForm.rating}
-                        onChange={(event) =>
-                          setReviewForm((current) => ({
-                            ...current,
-                            rating: event.target.value,
-                          }))
-                        }
-                        className="rounded-2xl border border-violet-100 px-4 py-3 text-sm outline-none focus:border-violet-400"
-                      >
-                        {[5, 4, 3, 2, 1].map((rating) => (
-                          <option key={rating} value={rating}>
-                            {rating} star
-                          </option>
-                        ))}
-                      </select>
-                      <select
-                        value={reviewForm.reason}
-                        onChange={(event) =>
-                          setReviewForm((current) => ({
-                            ...current,
-                            reason: event.target.value,
-                          }))
-                        }
-                        className="rounded-2xl border border-violet-100 px-4 py-3 text-sm outline-none focus:border-violet-400"
-                      >
-                        {reviewReasons.map((reason) => (
-                          <option key={reason} value={reason}>
-                            {reason.replaceAll("_", " ")}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <button
-                      onClick={submitReview}
-                      disabled={submitting}
-                      className="mt-3 w-full rounded-2xl bg-violet-600 px-4 py-3 text-sm font-bold text-white transition hover:bg-violet-700 disabled:bg-violet-300"
-                    >
-                      Submit review
-                    </button>
-                  </div>
-
-                  {ride.driver ? (
-                    <div>
-                      <textarea
-                        value={complaintMessage}
-                        onChange={(event) => setComplaintMessage(event.target.value)}
-                        placeholder="Complaint likho agar issue hua..."
-                        className="min-h-24 w-full rounded-2xl border border-violet-100 px-4 py-3 text-sm outline-none focus:border-violet-400"
-                      />
-                      <button
-                        onClick={submitComplaint}
-                        disabled={submitting || !complaintMessage.trim()}
-                        className="mt-3 w-full rounded-2xl border border-violet-200 px-4 py-3 text-sm font-bold text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
-                      >
-                        Submit complaint
-                      </button>
-                    </div>
-                  ) : null}
-                </div>
-              )}
-
-              {ride.status === "complete" || ride.status === "cancelled" ? (
-                <button
-                  onClick={() => setRide(null)}
-                  className="w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-bold text-white transition hover:bg-slate-800"
-                >
-                  Book another ride
-                </button>
-              ) : null}
-            </div>
-          ) : (
-            <div className="mt-5 space-y-4">
-              <div className="grid gap-3">
-                <PlacePicker
-                  label="Pickup"
-                  value={pickupQuery}
-                  placeholder="Search pickup address"
-                  helper="Address type karo ya current location button use karo."
-                  onQueryChange={(value) => {
-                    setPickupQuery(value);
-                    setPickup((current) => ({ ...current, address: value }));
-                  }}
-                  onPlaceSelect={(place) => {
-                    setPickupQuery(place.address);
-                    setPickup({
-                      address: place.address,
-                      lat: place.lat,
-                      lng: place.lng,
-                    });
-                  }}
-                />
-
-                <button
-                  onClick={useCurrentLocation}
-                  className="rounded-[24px] bg-slate-950 px-5 py-4 text-sm font-black text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] transition hover:-translate-y-0.5 hover:bg-violet-950"
-                >
-                  Use my current pickup location
-                </button>
-              </div>
-
-              <PlacePicker
-                label="Destination"
-                value={destinationQuery}
-                placeholder="Search drop address"
-                helper="Suggestion select karte hi coordinates set ho jayenge."
-                onQueryChange={setDestinationQuery}
-                onPlaceSelect={(place) => {
-                  setDestinationQuery(place.address);
-                  setDestination(place);
-                }}
-              />
-
-              <div className="grid gap-2 rounded-[22px] border border-violet-100 bg-violet-50 p-4 text-xs font-semibold text-violet-900">
-                <p>
-                  Pickup selected:{" "}
-                  {pickup.lat && pickup.lng
-                    ? `${pickup.address} (${pickup.lat.toFixed(4)}, ${pickup.lng.toFixed(4)})`
-                    : "not set"}
-                </p>
-                <p>
-                  Destination selected: {destination.address} (
-                  {destination.lat.toFixed(4)}, {destination.lng.toFixed(4)})
-                </p>
-              </div>
-
-              <div className="grid gap-3">
-                <div className="flex items-end justify-between gap-3">
-                  <div>
-                    <p className="text-sm font-black text-slate-950">
-                      Choose a ride
-                    </p>
-                    <p className="text-xs font-semibold text-slate-500">
-                      Price pickup aur destination ke distance se estimate hota hai.
-                    </p>
-                  </div>
-                  {routeDistanceKm ? (
-                    <span className="rounded-full bg-violet-100 px-3 py-1 text-xs font-black text-violet-700">
-                      {routeDistanceKm.toFixed(1)} km
-                    </span>
-                  ) : null}
-                </div>
-
-                {rideOptions.map((category) => (
-                  <button
-                    key={category.id}
-                    type="button"
-                    onClick={() => setCategoryId(category.id)}
-                    className={`flex items-center gap-4 rounded-[24px] border p-4 text-left transition ${
-                      categoryId === category.id
-                        ? "border-violet-500 bg-violet-50 shadow-[0_16px_45px_rgba(124,58,237,0.16)]"
-                        : "border-violet-100 bg-white hover:border-violet-300"
-                    }`}
-                  >
-                    <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white shadow-sm">
-                      {vehicleIcon(category.name)}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-base font-black text-slate-950">
-                        {category.name}
-                      </p>
-                      <p className="text-xs font-semibold text-slate-500">
-                        {category.capacity} seats | {category.eta ? `${category.eta} min` : "Set pickup"}
-                      </p>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-lg font-black text-slate-950">
-                        {category.fare ? `Rs. ${category.fare}` : "--"}
-                      </p>
-                      <p className="text-xs font-semibold text-violet-600">
-                        {categoryId === category.id ? "Selected" : "Select"}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              <button
-                onClick={requestRide}
-                disabled={submitting || loading || !pickup.lat || !pickup.lng}
-                className="w-full rounded-[24px] bg-violet-600 px-5 py-4 text-sm font-black text-white shadow-[0_18px_40px_rgba(124,58,237,0.28)] transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-300"
-              >
-                {submitting ? "Finding driver..." : "Book ride"}
-              </button>
-            </div>
-          )}
+          </div>
         </section>
 
-        <section className="overflow-hidden rounded-[38px] bg-white p-2 shadow-[0_30px_90px_rgba(88,28,135,0.16)] ring-1 ring-violet-100">
-          <RideMap
-            pickup={pickupPoint}
-            destination={destinationPoint}
-            vehicle={vehiclePoint || null}
-            vehicleTarget={vehicleTargetPoint}
-            animateVehicleKey={ride?.driver ? `${ride.id}-${ride.status}` : null}
-            className="min-h-[76vh] rounded-[32px]"
-          />
+        <section className="rounded-[34px] border border-violet-100 bg-white p-5 shadow-[0_26px_80px_rgba(88,28,135,0.14)]">
+          <p className="text-xs font-black uppercase tracking-[0.28em] text-violet-500">
+            Ride options
+          </p>
+          <h3 className="mt-2 text-2xl font-black">Choose your vehicle</h3>
+
+          <div className="mt-5 grid gap-3">
+            {rideOptions.map((category) => (
+              <button
+                key={category.id}
+                type="button"
+                onClick={() => setCategoryId(category.id)}
+                className={`flex items-center gap-4 rounded-[24px] border p-4 text-left transition ${
+                  categoryId === category.id
+                    ? "border-violet-500 bg-violet-50 shadow-[0_16px_45px_rgba(124,58,237,0.16)]"
+                    : "border-violet-100 bg-white hover:border-violet-300"
+                }`}
+              >
+                <div className="grid h-16 w-16 place-items-center rounded-2xl bg-white shadow-sm">
+                  {vehicleIcon(category.name)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-base font-black text-slate-950">{category.name}</p>
+                  <p className="text-xs font-semibold text-slate-500">
+                    {category.capacity} seats | {category.eta ? `${category.eta} min away` : "Select route"}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-lg font-black text-slate-950">
+                    {category.fare ? `Rs. ${category.fare}` : "--"}
+                  </p>
+                  <p className="text-xs font-semibold text-violet-600">
+                    {categoryId === category.id ? "Selected" : "Tap to choose"}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+
+          {!ride ? (
+            <button
+              onClick={requestRide}
+              disabled={submitting || loading || !pickup.lat || !pickup.lng}
+              className="mt-5 w-full rounded-[24px] bg-violet-600 px-5 py-4 text-sm font-black text-white shadow-[0_18px_40px_rgba(124,58,237,0.28)] transition hover:-translate-y-0.5 hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-300"
+            >
+              {submitting ? "Creating ride..." : "Book ride"}
+            </button>
+          ) : null}
         </section>
       </div>
-    </main>
+
+      {ride ? (
+        <section className="grid gap-6 xl:grid-cols-[1fr,0.95fr]">
+          <div className="rounded-[34px] border border-violet-100 bg-white p-5 shadow-[0_26px_80px_rgba(88,28,135,0.14)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-violet-500">
+                  Active ride
+                </p>
+                <h3 className="mt-2 text-3xl font-black capitalize">{ride.status}</h3>
+              </div>
+              <span className="rounded-full bg-violet-100 px-4 py-2 text-sm font-black text-violet-700">
+                Rs. {ride.estimatedFare?.toFixed(0) ?? "-"}
+              </span>
+            </div>
+
+            <div className="mt-5 grid gap-4 rounded-[26px] bg-violet-50 p-5 text-sm text-slate-700">
+              <p><span className="font-black text-slate-950">From:</span> {ride.pickup}</p>
+              <p><span className="font-black text-slate-950">To:</span> {ride.destination}</p>
+              <p><span className="font-black text-slate-950">Driver:</span> {ride.driver?.driverName ?? "Finding driver"}</p>
+              <p><span className="font-black text-slate-950">Vehicle:</span> {ride.driver?.vehicleName ?? "-"}</p>
+              <p><span className="font-black text-slate-950">Plate:</span> {ride.driver?.numberPlate ?? "-"}</p>
+              <p><span className="font-black text-slate-950">Distance:</span> {ride.estimatedDistanceKm?.toFixed(2) ?? "-"} km</p>
+            </div>
+
+            <button
+              onClick={cancelRide}
+              disabled={submitting}
+              className="mt-5 w-full rounded-[22px] border border-violet-200 px-4 py-3 text-sm font-black text-violet-700 transition hover:bg-violet-50 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {submitting ? "Updating..." : "Cancel ride"}
+            </button>
+          </div>
+
+          <div className="rounded-[34px] border border-violet-100 bg-white p-5 shadow-[0_26px_80px_rgba(88,28,135,0.14)]">
+            <p className="text-xs font-black uppercase tracking-[0.28em] text-violet-500">
+              Trip OTP
+            </p>
+            <h3 className="mt-2 text-2xl font-black">Share this with driver</h3>
+            <p className="mt-2 text-sm text-slate-600">
+              Driver ride start tabhi kar payega jab wo ye OTP enter karega.
+            </p>
+
+            <div className="mt-5 rounded-[28px] bg-gradient-to-br from-violet-700 to-fuchsia-500 p-6 text-white shadow-[0_22px_60px_rgba(88,28,135,0.24)]">
+              <p className="text-xs font-black uppercase tracking-[0.34em] text-violet-100">
+                Rider security code
+              </p>
+              <p className="mt-4 text-6xl font-black tracking-[0.32em]">
+                {ride.otp ?? "----"}
+              </p>
+              <p className="mt-4 text-sm text-violet-50">
+                {ride.isVerified
+                  ? "Driver ne OTP verify kar li. Trip officially start ho chuki hai."
+                  : "OTP verify hone tak trip final start nahi hogi."}
+              </p>
+            </div>
+          </div>
+        </section>
+      ) : null}
+    </AppShell>
   );
 }

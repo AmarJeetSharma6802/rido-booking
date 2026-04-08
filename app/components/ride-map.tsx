@@ -33,6 +33,24 @@ const ROUTE_LAYER_ID = "ride-route-layer";
 const ROUTE_CASE_SOURCE_ID = "ride-route-case-source";
 const ROUTE_CASE_LAYER_ID = "ride-route-case-layer";
 const OSRM_URL = process.env.NEXT_PUBLIC_OSRM_URL ?? "https://router.project-osrm.org";
+const OSM_FALLBACK_STYLE: maplibregl.StyleSpecification = {
+  version: 8,
+  sources: {
+    osm: {
+      type: "raster",
+      tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
+      tileSize: 256,
+      attribution: "© OpenStreetMap contributors",
+    },
+  },
+  layers: [
+    {
+      id: "osm",
+      type: "raster",
+      source: "osm",
+    },
+  ],
+};
 
 function hasCoordinates(
   point?: MapPoint | null,
@@ -189,16 +207,15 @@ export default function RideMap({
   const vehicleMarkerRef = useRef<maplibregl.Marker | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const maptilerKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
-  const mapError = maptilerKey
-    ? null
-    : "NEXT_PUBLIC_MAPTILER_KEY missing hai. Env add karke dev server restart karo.";
 
   useEffect(() => {
-    if (!mapContainer.current || mapRef.current || !maptilerKey) return;
+    if (!mapContainer.current || mapRef.current) return;
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: `https://api.maptiler.com/maps/streets-v2/style.json?key=${maptilerKey}`,
+      style: maptilerKey
+        ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${maptilerKey}`
+        : OSM_FALLBACK_STYLE,
       center: DEFAULT_CENTER,
       zoom: 12,
     });
@@ -352,14 +369,6 @@ export default function RideMap({
       cancelled = true;
     };
   }, [animateVehicleKey, vehicle, vehicleTarget]);
-
-  if (mapError) {
-    return (
-      <div className="grid min-h-[420px] place-items-center rounded-3xl bg-slate-950/90 p-6 text-center text-sm text-white">
-        <p>{mapError}</p>
-      </div>
-    );
-  }
 
   return (
     <div

@@ -50,7 +50,17 @@ export async function GET() {
         },
       });
 
-      return NextResponse.json({ data: activeRide }, { status: 200 });
+      return NextResponse.json(
+        {
+          data: activeRide
+            ? {
+                ...activeRide,
+                otp: null,
+              }
+            : null,
+        },
+        { status: 200 },
+      );
     }
 
     const activeRide = await prisma.ride.findFirst({
@@ -149,6 +159,7 @@ export async function POST(req: Request) {
     );
 
     const fare = calculateFare(category.baseFare, category.perKmRate, distance);
+    const rideOtp = Math.floor(1000 + Math.random() * 9000).toString();
 
     const drivers = await prisma.driver.findMany({
       where: {
@@ -203,6 +214,9 @@ export async function POST(req: Request) {
         destinationLongitude: destinationLng,
         estimatedDistanceKm: distance,
         estimatedFare: fare,
+        otp: rideOtp,
+        otpExpiry: new Date(Date.now() + 15 * 60 * 1000),
+        isVerified: false,
         status: "pending",
       },
       include: {
@@ -214,7 +228,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(
       {
-        message: "Ride created successfully. Waiting for driver accept.",
+        message: "Ride created successfully. Share OTP with driver to start trip.",
         data: createRide,
       },
       { status: 201 },
@@ -229,7 +243,7 @@ export async function PUT(req: Request) {
   try {
     const user = await authUser();
 
-    const { rideId, status } = await req.json();
+    const { rideId, status, otp } = await req.json();
 
     if (!rideId || !status) {
       return NextResponse.json(
@@ -286,6 +300,22 @@ export async function PUT(req: Request) {
           { status: 403 },
         );
       }
+
+      if (ride.status === "pending" && status === "ongoing") {
+        if (!otp || otp.trim() !== ride.otp) {
+          return NextResponse.json(
+            { message: "Valid rider OTP required to start trip" },
+            { status: 400 },
+          );
+        }
+
+        if (ride.otpExpiry && ride.otpExpiry < new Date()) {
+          return NextResponse.json(
+            { message: "Ride OTP expired. Please rebook ride." },
+            { status: 400 },
+          );
+        }
+      }
     } else if (ride.userId !== user.id) {
       return NextResponse.json(
         { message: "Unauthorized ride access" },
@@ -299,6 +329,11 @@ export async function PUT(req: Request) {
       },
       data: {
         status,
+        ...(ride.status === "pending" && status === "ongoing"
+          ? {
+              isVerified: true,
+            }
+          : {}),
       },
       include: {
         category: true,
