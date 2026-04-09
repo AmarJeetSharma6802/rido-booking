@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
@@ -51,9 +52,25 @@ export default function AppShell({ title, subtitle, children }: AppShellProps) {
   const sidebar = (
     <div className="flex h-full flex-col">
       <div className="rounded-[28px] bg-gradient-to-br from-violet-700 via-violet-600 to-fuchsia-500 p-5 text-white shadow-[0_18px_50px_rgba(88,28,135,0.26)]">
-        <p className="text-xs font-black uppercase tracking-[0.34em] text-violet-100">
-          RIDO BOOKING
-        </p>
+        <div className="flex items-center gap-3">
+          <div className="overflow-hidden rounded-2xl bg-white/90 p-2 shadow-sm">
+            <Image
+              src="/logo.png"
+              alt="RIDO BOOKING logo"
+              width={52}
+              height={52}
+              className="h-10 w-10 object-contain"
+            />
+          </div>
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.34em] text-violet-100">
+              RIDO BOOKING
+            </p>
+            <p className="mt-1 text-xs font-semibold text-violet-100/85">
+              Rider and driver app
+            </p>
+          </div>
+        </div>
         <h2 className="mt-3 text-3xl font-black tracking-tight">Control panel</h2>
         <p className="mt-2 text-sm leading-6 text-violet-50">
           Search, book, track, and drive from one responsive dashboard.
@@ -105,6 +122,15 @@ export default function AppShell({ title, subtitle, children }: AppShellProps) {
               <span className="block h-0.5 w-5 bg-current" />
               <span className="block h-0.5 w-5 bg-current" />
             </button>
+            <div className="overflow-hidden rounded-2xl border border-violet-100 bg-white p-2 shadow-sm">
+              <Image
+                src="/logo.png"
+                alt="RIDO BOOKING logo"
+                width={40}
+                height={40}
+                className="h-8 w-8 object-contain"
+              />
+            </div>
             <div>
               <p className="text-xs font-black uppercase tracking-[0.3em] text-violet-500">
                 Live ride dashboard

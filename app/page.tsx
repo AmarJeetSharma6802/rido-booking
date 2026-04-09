@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 
 const featureItems = [
@@ -21,9 +22,26 @@ export default function Page() {
       <section className="mx-auto flex min-h-[calc(100vh-48px)] max-w-6xl items-center">
         <div className="grid w-full gap-5 lg:grid-cols-[1.1fr,0.9fr]">
           <div className="rounded-[44px] bg-gradient-to-br from-violet-700 via-violet-600 to-fuchsia-500 p-8 text-white shadow-[0_30px_90px_rgba(88,28,135,0.25)]">
-            <p className="text-xs font-black uppercase tracking-[0.34em] text-violet-100">
-              RIDO BOOKING
-            </p>
+            <div className="flex items-center gap-4">
+              <div className="overflow-hidden rounded-[24px] bg-white/95 p-3 shadow-[0_18px_40px_rgba(15,23,42,0.16)]">
+                <Image
+                  src="/logo.png"
+                  alt="RIDO BOOKING logo"
+                  width={72}
+                  height={72}
+                  className="h-14 w-14 object-contain"
+                  priority
+                />
+              </div>
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.34em] text-violet-100">
+                  RIDO BOOKING
+                </p>
+                <p className="mt-1 text-sm font-semibold text-violet-100/85">
+                  Ride booking platform
+                </p>
+              </div>
+            </div>
             <h1 className="mt-5 max-w-3xl text-6xl font-black tracking-tight">
               Login, choose role, book ride, and manage trips easily.
             </h1>

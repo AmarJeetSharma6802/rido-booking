@@ -45,6 +45,11 @@ export const metadata: Metadata = {
     description:
       "Ride booking app with rider flow, driver acceptance, OTP verification, and completed trip feedback.",
   },
+  icons: {
+    icon: "/favicon-image.png",
+    shortcut: "/favicon-image.png",
+    apple: "/favicon-image.png",
+  },
 };
 
 export default function RootLayout({
