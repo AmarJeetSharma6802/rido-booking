@@ -1,5 +1,20 @@
 import Link from "next/link";
 
+const featureItems = [
+  "Login karo aur role choose karo",
+  "Pickup aur drop set karke ride book karo",
+  "Driver ride accept karke OTP verify kare",
+  "Trip ke baad review aur complaint bhejo",
+];
+
+const quickLinks = [
+  { href: "/auth", label: "Login / Register", primary: true },
+  { href: "/chooseRole", label: "Choose role" },
+  { href: "/user", label: "Open user app" },
+  { href: "/driver", label: "Open driver setup" },
+  { href: "/driver/pickup", label: "Open driver board" },
+];
+
 export default function Page() {
   return (
     <main className="min-h-screen bg-[#f7f2ff] px-4 py-6 text-slate-950">
@@ -7,38 +22,40 @@ export default function Page() {
         <div className="grid w-full gap-5 lg:grid-cols-[1.1fr,0.9fr]">
           <div className="rounded-[44px] bg-gradient-to-br from-violet-700 via-violet-600 to-fuchsia-500 p-8 text-white shadow-[0_30px_90px_rgba(88,28,135,0.25)]">
             <p className="text-xs font-black uppercase tracking-[0.34em] text-violet-100">
-              Rideflow
+              RIDO BOOKING
             </p>
             <h1 className="mt-5 max-w-3xl text-6xl font-black tracking-tight">
-              A lightweight ride booking app for users and drivers.
+              Login, choose role, book ride, and manage trips easily.
             </h1>
             <p className="mt-5 max-w-xl text-sm leading-7 text-violet-50">
-              User real pickup location se ride book karega. Driver online
-              location sync karke assigned ride accept karega.
+              Root page simple landing rahega. Yahan se auth, role selection,
+              user app, driver setup, aur driver board sab normal navigation se
+              open hoga.
             </p>
+
             <div className="mt-8 flex flex-wrap gap-3">
-              <Link
-                href="/auth"
-                className="rounded-full bg-white px-6 py-3 text-sm font-black text-violet-700 transition hover:bg-violet-50"
-              >
-                Login / Register
-              </Link>
-              <Link
-                href="/driver/pickup"
-                className="rounded-full bg-violet-950/60 px-6 py-3 text-sm font-black text-white transition hover:bg-violet-950"
-              >
-                Driver board
-              </Link>
+              {quickLinks.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={
+                    item.primary
+                      ? "rounded-full bg-white px-6 py-3 text-sm font-black text-violet-700 transition hover:bg-violet-50"
+                      : "rounded-full bg-violet-950/60 px-6 py-3 text-sm font-black text-white transition hover:bg-violet-950"
+                  }
+                >
+                  {item.label}
+                </Link>
+              ))}
             </div>
+
+            <p className="mt-5 text-sm font-semibold text-violet-100/90">
+              Login required rahega jab aap actual ride book ya driver actions karoge.
+            </p>
           </div>
 
           <div className="grid gap-4">
-            {[
-              "Current-location pickup",
-              "Nearest online driver match",
-              "Driver accept and complete ride",
-              "Review and complaint after completion",
-            ].map((item) => (
+            {featureItems.map((item) => (
               <div
                 key={item}
                 className="rounded-[28px] border border-violet-100 bg-white p-6 text-lg font-black shadow-[0_22px_70px_rgba(88,28,135,0.12)]"
@@ -46,6 +63,18 @@ export default function Page() {
                 {item}
               </div>
             ))}
+
+            <div className="rounded-[28px] border border-violet-100 bg-white p-6 shadow-[0_22px_70px_rgba(88,28,135,0.12)]">
+              <p className="text-xs font-black uppercase tracking-[0.28em] text-violet-500">
+                Simple flow
+              </p>
+              <div className="mt-4 grid gap-3 text-sm font-semibold text-slate-700">
+                <p>1. Login / Register</p>
+                <p>2. Role choose karo</p>
+                <p>3. User ride book kare ya driver setup complete kare</p>
+                <p>4. Driver accept kare, OTP verify kare, trip start ho</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>

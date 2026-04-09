@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import AppShell from "@/app/components/app-shell";
 import PlacePicker from "@/app/components/place-picker";
 import RideMap, { MapPoint } from "@/app/components/ride-map";
+import UserTripOtpCard from "@/app/components/user-trip-otp-card";
+import CompletedRideFeedback from "@/app/components/completed-ride-feedback";
 
 interface Category {
   id: string;
@@ -155,7 +157,7 @@ export default function UserRidePage() {
   const completedRideId = completedRide?.id;
 
   const loadRide = async () => {
-    const rideResponse = await fetch("/api/controllers/rider/createAndupdate", {
+    const rideResponse = await fetch("/api/controllers/rider/createAndupdate?view=user", {
       cache: "no-store",
     });
     const rideResult = await rideResponse.json();
@@ -318,7 +320,7 @@ export default function UserRidePage() {
 
       setRide(result.data);
       setCompletedRide(null);
-      setNotice("Ride request send ho gayi. OTP driver ko start karne ke liye dena hoga.");
+      setNotice("Ride request send ho gayi. OTP ab ready hai, driver accept ke baad isi se verify karega.");
     } catch (requestError) {
       const message =
         requestError instanceof Error ? requestError.message : "Ride create nahi hui";
@@ -635,156 +637,28 @@ export default function UserRidePage() {
             </button>
           </div>
 
-          <div className="rounded-[34px] border border-violet-100 bg-white p-5 shadow-[0_26px_80px_rgba(88,28,135,0.14)]">
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-violet-500">
-              Trip OTP
-            </p>
-            <h3 className="mt-2 text-2xl font-black">Share this with driver</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              Driver ride start tabhi kar payega jab wo ye OTP enter karega.
-            </p>
-
-            <div className="mt-5 rounded-[28px] bg-gradient-to-br from-violet-700 to-fuchsia-500 p-6 text-white shadow-[0_22px_60px_rgba(88,28,135,0.24)]">
-              <p className="text-xs font-black uppercase tracking-[0.34em] text-violet-100">
-                Rider security code
-              </p>
-              <p className="mt-4 text-6xl font-black tracking-[0.32em]">
-                {ride.otp ?? "WAIT"}
-              </p>
-              <p className="mt-4 text-sm text-violet-50">
-                {!ride.otp
-                  ? "Driver accept karega, tab OTP yahan show hogi."
-                  : ride.isVerified
-                  ? "Driver ne OTP verify kar li. Trip officially start ho chuki hai."
-                  : "OTP verify hone tak trip final start nahi hogi."}
-              </p>
-            </div>
-          </div>
+          <UserTripOtpCard otp={ride.otp} isVerified={ride.isVerified} />
         </section>
       ) : null}
 
       {!ride && completedRide ? (
-        <section className="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
-          <div className="rounded-[34px] border border-emerald-100 bg-white p-5 shadow-[0_26px_80px_rgba(16,185,129,0.14)]">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-500">
-                  Trip completed
-                </p>
-                <h3 className="mt-2 text-3xl font-black">How was your ride?</h3>
-                <p className="mt-2 text-sm text-slate-600">
-                  Driver details aur trip summary yahan hai. Quick review se app aur real lagega.
-                </p>
-              </div>
-              <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700">
-                Rs. {completedRide.estimatedFare?.toFixed(0) ?? "-"}
-              </span>
-            </div>
-
-            <div className="mt-5 grid gap-3 rounded-[26px] bg-emerald-50 p-5 text-sm text-slate-700">
-              <p><span className="font-black text-slate-950">From:</span> {completedRide.pickup}</p>
-              <p><span className="font-black text-slate-950">To:</span> {completedRide.destination}</p>
-              <p><span className="font-black text-slate-950">Driver:</span> {completedRide.driver?.driverName ?? "-"}</p>
-              <p><span className="font-black text-slate-950">Vehicle:</span> {completedRide.driver?.vehicleName ?? "-"}</p>
-              <p><span className="font-black text-slate-950">Plate:</span> {completedRide.driver?.numberPlate ?? "-"}</p>
-              <p><span className="font-black text-slate-950">Distance:</span> {completedRide.estimatedDistanceKm?.toFixed(2) ?? "-"} km</p>
-            </div>
-
-            {completedRide.hasReview ? (
-              <div className="mt-5 rounded-[24px] border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
-                Review already submit ho chuki hai. Aap turant next ride book kar sakte ho.
-              </div>
-            ) : (
-              <>
-                <div className="mt-5">
-                  <p className="text-sm font-black text-slate-900">Driver rating</p>
-                  <div className="mt-3 flex flex-wrap gap-3">
-                    {[1, 2, 3, 4, 5].map((ratingValue) => (
-                      <button
-                        key={ratingValue}
-                        type="button"
-                        onClick={() => setReviewRating(ratingValue)}
-                        className={`rounded-2xl px-4 py-3 text-sm font-black transition ${
-                          reviewRating === ratingValue
-                            ? "bg-emerald-600 text-white shadow-[0_16px_30px_rgba(5,150,105,0.24)]"
-                            : "border border-emerald-200 bg-white text-emerald-700 hover:bg-emerald-50"
-                        }`}
-                      >
-                        {ratingValue} / 5
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-5">
-                  <label className="text-sm font-black text-slate-900">
-                    Review reason
-                  </label>
-                  <select
-                    value={reviewReason}
-                    onChange={(event) =>
-                      setReviewReason(
-                        event.target.value as (typeof reviewReasonOptions)[number]["value"],
-                      )
-                    }
-                    className="mt-3 w-full rounded-[22px] border border-emerald-200 bg-white px-4 py-4 text-sm font-semibold text-slate-900 outline-none transition focus:border-emerald-500"
-                  >
-                    {reviewReasonOptions.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <button
-                  onClick={submitReview}
-                  disabled={reviewSubmitting}
-                  className="mt-5 w-full rounded-[22px] bg-emerald-600 px-4 py-4 text-sm font-black text-white shadow-[0_18px_40px_rgba(5,150,105,0.22)] transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-emerald-300"
-                >
-                  {reviewSubmitting ? "Submitting review..." : "Submit review"}
-                </button>
-              </>
-            )}
-          </div>
-
-          <div className="rounded-[34px] border border-amber-100 bg-white p-5 shadow-[0_26px_80px_rgba(217,119,6,0.12)]">
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-amber-500">
-              Help and complaint
-            </p>
-            <h3 className="mt-2 text-3xl font-black">Raise an issue</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              Agar overcharge, rude behavior, ya pickup-route issue hua ho to yahan likh do.
-            </p>
-
-            <div className="mt-5 rounded-[26px] bg-amber-50 p-5 text-sm text-slate-700">
-              <p><span className="font-black text-slate-950">Assigned driver:</span> {completedRide.driver?.driverName ?? "-"}</p>
-              <p className="mt-2"><span className="font-black text-slate-950">Vehicle:</span> {completedRide.driver?.vehicleName ?? "-"}</p>
-              <p className="mt-2"><span className="font-black text-slate-950">Number plate:</span> {completedRide.driver?.numberPlate ?? "-"}</p>
-            </div>
-
-            {complaintSent ? (
-              <div className="mt-5 rounded-[24px] border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
-                Complaint submit ho gayi. Team is ride ko manually review kar sakti hai.
-              </div>
-            ) : null}
-
-            <textarea
-              value={complaintMessage}
-              onChange={(event) => setComplaintMessage(event.target.value)}
-              placeholder="Example: driver ne extra cash demand ki, wrong lane li, ya rude behavior tha..."
-              className="mt-5 min-h-40 w-full rounded-[24px] border border-amber-200 bg-white px-4 py-4 text-sm font-medium text-slate-900 outline-none transition focus:border-amber-500"
-            />
-
-            <button
-              onClick={submitComplaint}
-              disabled={complaintSubmitting}
-              className="mt-5 w-full rounded-[22px] bg-slate-950 px-4 py-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-            >
-              {complaintSubmitting ? "Submitting complaint..." : "Submit complaint"}
-            </button>
-          </div>
-        </section>
+        <CompletedRideFeedback
+          ride={completedRide}
+          reviewRating={reviewRating}
+          reviewReason={reviewReason}
+          reviewReasonOptions={reviewReasonOptions}
+          reviewSubmitting={reviewSubmitting}
+          complaintSubmitting={complaintSubmitting}
+          complaintMessage={complaintMessage}
+          complaintSent={complaintSent}
+          onReviewRatingChange={setReviewRating}
+          onReviewReasonChange={(value) =>
+            setReviewReason(value as (typeof reviewReasonOptions)[number]["value"])
+          }
+          onComplaintMessageChange={setComplaintMessage}
+          onSubmitReview={submitReview}
+          onSubmitComplaint={submitComplaint}
+        />
       ) : null}
     </AppShell>
   );

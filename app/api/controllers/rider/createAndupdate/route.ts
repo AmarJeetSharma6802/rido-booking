@@ -23,15 +23,39 @@ function toNumber(value: unknown) {
   return Number.isFinite(numberValue) ? numberValue : null;
 }
 
-export async function GET() {
+function normalizeOtp(value: string | null | undefined) {
+  return (value ?? "").replace(/\D/g, "");
+}
+
+function toDriverRideData(
+  ride: Awaited<ReturnType<typeof prisma.ride.findFirst>>,
+  driverProfile: Awaited<ReturnType<typeof prisma.driver.findFirst>>,
+) {
+  if (!ride) {
+    return null;
+  }
+
+  return {
+    ...ride,
+    driver: driverProfile,
+    otp: null,
+    requiresOtpStart:
+      ride.status === "pending" &&
+      Boolean(ride.otp) &&
+      !ride.isVerified,
+  };
+}
+
+export async function GET(req: Request) {
   try {
     const user = await authUser();
+    const { searchParams } = new URL(req.url);
+    const view = searchParams.get("view");
+    const driverProfile = await prisma.driver.findFirst({
+      where: { userId: user.id },
+    });
 
-    if (user.role === "driver") {
-      const driverProfile = await prisma.driver.findFirst({
-        where: { userId: user.id },
-      });
-
+    if (view === "driver") {
       if (!driverProfile) {
         return NextResponse.json(
           { message: "Driver profile not found" },
@@ -56,18 +80,53 @@ export async function GET() {
         },
       });
 
+      if (activeRide) {
+        return NextResponse.json(
+          {
+            data: toDriverRideData(activeRide, driverProfile),
+          },
+          {
+            status: 200,
+            headers: noStoreHeaders,
+          },
+        );
+      }
+
+      const nearbyPendingRides = await prisma.ride.findMany({
+        where: {
+          status: "pending",
+          otp: null,
+        },
+        include: {
+          category: true,
+          driver: true,
+          user: true,
+        },
+        orderBy: {
+          createdAt: "desc",
+        },
+        take: 20,
+      });
+
+      const openRide = nearbyPendingRides
+        .map((ride) => ({
+          ride,
+          distanceKm:
+            ride.pickupLatitude !== null && ride.pickupLongitude !== null
+              ? getDistance(
+                  driverProfile.latitude,
+                  driverProfile.longitude,
+                  ride.pickupLatitude,
+                  ride.pickupLongitude,
+                )
+              : Number.MAX_SAFE_INTEGER,
+        }))
+        .filter((item) => item.distanceKm <= NEARBY_DRIVER_RADIUS_KM)
+        .sort((a, b) => a.distanceKm - b.distanceKm)[0]?.ride;
+
       return NextResponse.json(
         {
-          data: activeRide
-            ? {
-                ...activeRide,
-                otp: null,
-                requiresOtpStart:
-                  activeRide.status === "pending" &&
-                  Boolean(activeRide.otp) &&
-                  !activeRide.isVerified,
-              }
-            : null,
+          data: toDriverRideData(openRide ?? null, driverProfile),
         },
         {
           status: 200,
@@ -322,18 +381,12 @@ export async function PUT(req: Request) {
       return NextResponse.json({ message: "Ride not found" }, { status: 404 });
     }
 
-    if (user.role === "driver") {
-      const driverProfile = await prisma.driver.findFirst({
-        where: { userId: user.id },
-      });
+    const driverProfile = await prisma.driver.findFirst({
+      where: { userId: user.id },
+    });
+    const canActAsDriver = Boolean(driverProfile);
 
-      if (!driverProfile || driverProfile.id !== ride.driverId) {
-        return NextResponse.json(
-          { message: "Unauthorized ride access" },
-          { status: 403 },
-        );
-      }
-
+    if (canActAsDriver) {
       if (action === "accept") {
         if (ride.status !== "pending") {
           return NextResponse.json(
@@ -353,6 +406,7 @@ export async function PUT(req: Request) {
         const acceptedRide = await prisma.ride.update({
           where: { id: ride.id },
           data: {
+            driverId: driverProfile!.id,
             otp: rideOtp,
             otpExpiry: new Date(Date.now() + 15 * 60 * 1000),
             isVerified: false,
@@ -367,11 +421,7 @@ export async function PUT(req: Request) {
         return NextResponse.json(
           {
             message: "Ride accepted. Rider ko OTP share karne ko bolo.",
-            data: {
-              ...acceptedRide,
-              otp: null,
-              requiresOtpStart: true,
-            },
+            data: toDriverRideData(acceptedRide, driverProfile),
           },
           {
             status: 200,
@@ -381,6 +431,13 @@ export async function PUT(req: Request) {
       }
 
       if (ride.status === "pending" && status === "ongoing") {
+        if (ride.driverId !== driverProfile!.id) {
+          return NextResponse.json(
+            { message: "Ye ride aapne accept nahi ki hai" },
+            { status: 403 },
+          );
+        }
+
         if (!ride.otp) {
           return NextResponse.json(
             { message: "Pehle ride accept karo, phir rider OTP enter karo" },
@@ -388,7 +445,7 @@ export async function PUT(req: Request) {
           );
         }
 
-        if (!otp || otp.trim() !== ride.otp) {
+        if (!normalizeOtp(otp) || normalizeOtp(otp) !== normalizeOtp(ride.otp)) {
           return NextResponse.json(
             { message: "Valid rider OTP required to start trip" },
             { status: 400 },
@@ -401,6 +458,13 @@ export async function PUT(req: Request) {
             { status: 400 },
           );
         }
+      }
+
+      if (action !== "accept" && ride.driverId !== driverProfile!.id) {
+        return NextResponse.json(
+          { message: "Ye ride dusre driver ko assigned hai" },
+          { status: 403 },
+        );
       }
     } else if (ride.userId !== user.id) {
       return NextResponse.json(

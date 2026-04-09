@@ -52,7 +52,7 @@ export default function AppShell({ title, subtitle, children }: AppShellProps) {
     <div className="flex h-full flex-col">
       <div className="rounded-[28px] bg-gradient-to-br from-violet-700 via-violet-600 to-fuchsia-500 p-5 text-white shadow-[0_18px_50px_rgba(88,28,135,0.26)]">
         <p className="text-xs font-black uppercase tracking-[0.34em] text-violet-100">
-          Rideflow
+          RIDO BOOKING
         </p>
         <h2 className="mt-3 text-3xl font-black tracking-tight">Control panel</h2>
         <p className="mt-2 text-sm leading-6 text-violet-50">

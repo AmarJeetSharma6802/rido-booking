@@ -60,7 +60,7 @@ export default function DriverPickupPage() {
 
   const loadRide = async () => {
     try {
-      const response = await fetch("/api/controllers/rider/createAndupdate", {
+      const response = await fetch("/api/controllers/rider/createAndupdate?view=driver", {
         cache: "no-store",
       });
       const result = await response.json();
@@ -369,7 +369,9 @@ export default function DriverPickupPage() {
                   </p>
                   <input
                     value={otpInput}
-                    onChange={(event) => setOtpInput(event.target.value)}
+                    onChange={(event) =>
+                      setOtpInput(event.target.value.replace(/\D/g, "").slice(0, 4))
+                    }
                     placeholder="Enter 4-digit rider OTP"
                     className="mt-4 w-full rounded-2xl border border-violet-100 px-4 py-3 text-lg font-black tracking-[0.28em] outline-none focus:border-violet-400"
                   />

@@ -285,16 +285,13 @@ export default function RideMap({
   const animationFrameRef = useRef<number | null>(null);
   const displayedVehiclePositionRef = useRef<[number, number] | null>(null);
   const displayedVehicleKeyRef = useRef<string | null>(null);
-  const maptilerKey = process.env.NEXT_PUBLIC_MAPTILER_KEY;
 
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
 
     const map = new maplibregl.Map({
       container: mapContainer.current,
-      style: maptilerKey
-        ? `https://api.maptiler.com/maps/streets-v2/style.json?key=${maptilerKey}`
-        : OSM_FALLBACK_STYLE,
+      style: OSM_FALLBACK_STYLE,
       center: DEFAULT_CENTER,
       zoom: 12,
     });
@@ -312,7 +309,7 @@ export default function RideMap({
       map.remove();
       mapRef.current = null;
     };
-  }, [maptilerKey]);
+  }, []);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -326,11 +323,15 @@ export default function RideMap({
 
         if (hasCoordinates(pickup) && isReasonableMapPoint(pickup)) {
           if (!pickupMarkerRef.current) {
-            pickupMarkerRef.current = new maplibregl.Marker({
+            const marker = new maplibregl.Marker({
               element: createCircleMarker("#7c3aed", pickup.label),
-            }).addTo(map);
+            });
+
+            marker.setLngLat([pickup.lng, pickup.lat]).addTo(map);
+            pickupMarkerRef.current = marker;
+          } else {
+            pickupMarkerRef.current.setLngLat([pickup.lng, pickup.lat]);
           }
-          pickupMarkerRef.current.setLngLat([pickup.lng, pickup.lat]);
           bounds.extend([pickup.lng, pickup.lat]);
         } else {
           pickupMarkerRef.current?.remove();
@@ -339,11 +340,15 @@ export default function RideMap({
 
         if (hasCoordinates(destination) && isReasonableMapPoint(destination)) {
           if (!destinationMarkerRef.current) {
-            destinationMarkerRef.current = new maplibregl.Marker({
+            const marker = new maplibregl.Marker({
               element: createCircleMarker("#ec4899", destination.label),
-            }).addTo(map);
+            });
+
+            marker.setLngLat([destination.lng, destination.lat]).addTo(map);
+            destinationMarkerRef.current = marker;
+          } else {
+            destinationMarkerRef.current.setLngLat([destination.lng, destination.lat]);
           }
-          destinationMarkerRef.current.setLngLat([destination.lng, destination.lat]);
           bounds.extend([destination.lng, destination.lat]);
         } else {
           destinationMarkerRef.current?.remove();
@@ -359,12 +364,16 @@ export default function RideMap({
               : ([vehicle.lng, vehicle.lat] as [number, number]);
 
           if (!vehicleMarkerRef.current) {
-            vehicleMarkerRef.current = new maplibregl.Marker({
+            const marker = new maplibregl.Marker({
               element: createVehicleMarker(vehicle.label),
               anchor: "center",
-            }).addTo(map);
+            });
+
+            marker.setLngLat(displayedVehiclePosition).addTo(map);
+            vehicleMarkerRef.current = marker;
+          } else {
+            vehicleMarkerRef.current.setLngLat(displayedVehiclePosition);
           }
-          vehicleMarkerRef.current.setLngLat(displayedVehiclePosition);
           bounds.extend(displayedVehiclePosition);
         } else {
           vehicleMarkerRef.current?.remove();
@@ -429,10 +438,15 @@ export default function RideMap({
       if (cancelled || coordinates.length < 2) return;
 
       if (!vehicleMarkerRef.current) {
-        vehicleMarkerRef.current = new maplibregl.Marker({
+        const marker = new maplibregl.Marker({
           element: createVehicleMarker(vehicle.label),
           anchor: "center",
-        }).addTo(map);
+        });
+
+        marker.setLngLat([vehicle.lng, vehicle.lat]).addTo(map);
+        vehicleMarkerRef.current = marker;
+      } else {
+        vehicleMarkerRef.current.setLngLat([vehicle.lng, vehicle.lat]);
       }
 
       if (animationFrameRef.current) {
