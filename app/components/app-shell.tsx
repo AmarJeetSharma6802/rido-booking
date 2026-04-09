@@ -53,13 +53,13 @@ export default function AppShell({ title, subtitle, children }: AppShellProps) {
     <div className="flex h-full flex-col">
       <div className="rounded-[28px] bg-gradient-to-br from-violet-700 via-violet-600 to-fuchsia-500 p-5 text-white shadow-[0_18px_50px_rgba(88,28,135,0.26)]">
         <div className="flex items-center gap-3">
-          <div className="overflow-hidden rounded-2xl bg-white/90 p-2 shadow-sm">
+          <div className="overflow-hidden rounded-2xl bg-violet-900/35 p-2 ring-1 ring-white/20 shadow-sm backdrop-blur-sm">
             <Image
               src="/transparent-logo.png"
               alt="RIDO BOOKING logo"
               width={52}
               height={52}
-              className="h-10 w-10 object-contain"
+              className="h-10 w-auto object-contain"
             />
           </div>
           <div>
@@ -122,13 +122,13 @@ export default function AppShell({ title, subtitle, children }: AppShellProps) {
               <span className="block h-0.5 w-5 bg-current" />
               <span className="block h-0.5 w-5 bg-current" />
             </button>
-            <div className="overflow-hidden rounded-2xl border border-violet-100 bg-white p-2 shadow-sm">
+            <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-violet-700 via-violet-600 to-fuchsia-500 p-2 shadow-sm">
               <Image
                 src="/transparent-logo.png"
                 alt="RIDO BOOKING logo"
                 width={40}
                 height={40}
-                className="h-8 w-8 object-contain"
+                className="h-8 w-auto object-contain"
               />
             </div>
             <div>

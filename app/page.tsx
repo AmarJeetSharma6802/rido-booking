@@ -23,13 +23,13 @@ export default function Page() {
         <div className="grid w-full gap-5 lg:grid-cols-[1.1fr,0.9fr]">
           <div className="rounded-[44px] bg-gradient-to-br from-violet-700 via-violet-600 to-fuchsia-500 p-8 text-white shadow-[0_30px_90px_rgba(88,28,135,0.25)]">
             <div className="flex items-center gap-4">
-              <div className="overflow-hidden rounded-[24px] bg-white/95 p-3 shadow-[0_18px_40px_rgba(15,23,42,0.16)]">
+              <div className="overflow-hidden rounded-[24px] bg-violet-900/35 p-3 ring-1 ring-white/20 shadow-[0_18px_40px_rgba(15,23,42,0.16)] backdrop-blur-sm">
                 <Image
                   src="/transparent-logo.png"
                   alt="RIDO BOOKING logo"
                   width={72}
                   height={72}
-                  className="h-14 w-14 object-contain"
+                  className="h-14 w-auto object-contain"
                   priority
                 />
               </div>
@@ -42,9 +42,7 @@ export default function Page() {
                 </p>
               </div>
             </div>
-            <h1 className="mt-5 max-w-3xl text-6xl font-black tracking-tight">
-              Login, choose role, book ride, and manage trips easily.
-            </h1>
+            
 
             <div className="mt-8 flex flex-wrap gap-3">
               {quickLinks.map((item) => (
