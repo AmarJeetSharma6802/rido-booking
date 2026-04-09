@@ -25,7 +25,7 @@ export default function Page() {
             <div className="flex items-center gap-4">
               <div className="overflow-hidden rounded-[24px] bg-white/95 p-3 shadow-[0_18px_40px_rgba(15,23,42,0.16)]">
                 <Image
-                  src="/logo.png"
+                  src="/transparent-logo.png"
                   alt="RIDO BOOKING logo"
                   width={72}
                   height={72}
@@ -45,11 +45,6 @@ export default function Page() {
             <h1 className="mt-5 max-w-3xl text-6xl font-black tracking-tight">
               Login, choose role, book ride, and manage trips easily.
             </h1>
-            <p className="mt-5 max-w-xl text-sm leading-7 text-violet-50">
-              Root page simple landing rahega. Yahan se auth, role selection,
-              user app, driver setup, aur driver board sab normal navigation se
-              open hoga.
-            </p>
 
             <div className="mt-8 flex flex-wrap gap-3">
               {quickLinks.map((item) => (
@@ -67,9 +62,7 @@ export default function Page() {
               ))}
             </div>
 
-            <p className="mt-5 text-sm font-semibold text-violet-100/90">
-              Login required rahega jab aap actual ride book ya driver actions karoge.
-            </p>
+            
           </div>
 
           <div className="grid gap-4">

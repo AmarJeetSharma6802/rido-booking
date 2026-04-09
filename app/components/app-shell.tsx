@@ -55,7 +55,7 @@ export default function AppShell({ title, subtitle, children }: AppShellProps) {
         <div className="flex items-center gap-3">
           <div className="overflow-hidden rounded-2xl bg-white/90 p-2 shadow-sm">
             <Image
-              src="/logo.png"
+              src="/transparent-logo.png"
               alt="RIDO BOOKING logo"
               width={52}
               height={52}
@@ -124,7 +124,7 @@ export default function AppShell({ title, subtitle, children }: AppShellProps) {
             </button>
             <div className="overflow-hidden rounded-2xl border border-violet-100 bg-white p-2 shadow-sm">
               <Image
-                src="/logo.png"
+                src="/transparent-logo.png"
                 alt="RIDO BOOKING logo"
                 width={40}
                 height={40}
