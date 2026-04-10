@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
+import LogoutButton from "@/app/components/logout-button";
 
 interface AppShellProps {
   title: string;
@@ -119,6 +120,9 @@ export default function AppShell({
         <p className="mt-2 inline-flex rounded-full bg-violet-100 px-3 py-1 text-xs font-black text-violet-700">
           {me?.role ?? "visitor"}
         </p>
+        {me ? (
+          <LogoutButton className="mt-4 w-full rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm font-black text-rose-600 transition hover:bg-rose-100 disabled:cursor-not-allowed disabled:opacity-60" />
+        ) : null}
       </div>
     </div>
   );
@@ -154,14 +158,23 @@ export default function AppShell({
             </div>
           </div>
 
-          <div className="hidden items-center gap-3 rounded-full border border-violet-100 bg-white px-4 py-2 shadow-sm md:flex">
-            <div className="grid h-10 w-10 place-items-center rounded-full bg-violet-100 text-sm font-black text-violet-700">
-              {(me?.name?.[0] ?? "R").toUpperCase()}
+          {me ? (
+            <div className="md:hidden">
+              <LogoutButton className="rounded-full border border-rose-200 bg-white px-4 py-2 text-xs font-black text-rose-600 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-60" />
             </div>
-            <div className="text-right">
-              <p className="text-sm font-black text-slate-950">{me?.name ?? "Ride User"}</p>
-              <p className="text-xs text-slate-500">{me?.role ?? "guest"}</p>
+          ) : null}
+
+          <div className="hidden items-center gap-3 md:flex">
+            <div className="flex items-center gap-3 rounded-full border border-violet-100 bg-white px-4 py-2 shadow-sm">
+              <div className="grid h-10 w-10 place-items-center rounded-full bg-violet-100 text-sm font-black text-violet-700">
+                {(me?.name?.[0] ?? "R").toUpperCase()}
+              </div>
+              <div className="text-right">
+                <p className="text-sm font-black text-slate-950">{me?.name ?? "Ride User"}</p>
+                <p className="text-xs text-slate-500">{me?.role ?? "guest"}</p>
+              </div>
             </div>
+            {me ? <LogoutButton /> : null}
           </div>
         </div>
       </header>

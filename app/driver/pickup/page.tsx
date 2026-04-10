@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import AppShell from "@/app/components/app-shell";
 import PlacePicker from "@/app/components/place-picker";
