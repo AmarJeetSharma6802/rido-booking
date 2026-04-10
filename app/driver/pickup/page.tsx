@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import AppShell from "@/app/components/app-shell";
 import PlacePicker from "@/app/components/place-picker";
 import RideMap, { MapPoint } from "@/app/components/ride-map";
@@ -50,11 +51,13 @@ function toMapPoint(
 }
 
 export default function DriverPickupPage() {
+  const router = useRouter();
   const [ride, setRide] = useState<ActiveRide | null>(null);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [needsSetup, setNeedsSetup] = useState(false);
   const [locationQuery, setLocationQuery] = useState("");
   const [otpInput, setOtpInput] = useState("");
 
@@ -66,10 +69,20 @@ export default function DriverPickupPage() {
       const result = await response.json();
 
       if (!response.ok) {
+        if (response.status === 404 && result.message === "Driver profile not found") {
+          setRide(null);
+          setNeedsSetup(true);
+          setError(
+            "Complete the driver setup first. Nearby rides will appear here after setup is saved.",
+          );
+          return;
+        }
+
         throw new Error(result.message || "Ride load failed");
       }
 
       setRide(result.data ?? null);
+      setNeedsSetup(false);
       setError(null);
     } catch (loadError) {
       const message =
@@ -82,20 +95,27 @@ export default function DriverPickupPage() {
 
   useEffect(() => {
     loadRide();
+  }, []);
+
+  useEffect(() => {
+    if (needsSetup) {
+      return;
+    }
+
     const interval = window.setInterval(() => {
       loadRide().catch(() => null);
     }, 5000);
 
     return () => window.clearInterval(interval);
-  }, []);
+  }, [needsSetup]);
 
   const syncDriverLocation = () => {
-    setNotice("Driver location update kar rahe hain...");
+    setNotice("Updating driver location...");
     setError(null);
 
     if (!navigator.geolocation) {
       setNotice(null);
-      setError("Browser geolocation support nahi kar raha.");
+      setError("This browser does not support geolocation.");
       return;
     }
 
@@ -117,10 +137,14 @@ export default function DriverPickupPage() {
           const result = await response.json();
 
           if (!response.ok) {
+            if (response.status === 404) {
+              setNeedsSetup(true);
+              router.push("/driver");
+            }
             throw new Error(result.message || "Location update failed");
           }
 
-          setNotice("Aap online ho. User ride book karega to request yahan show hogi.");
+          setNotice("You are online. New ride requests will appear here.");
           await loadRide();
         } catch (locationError) {
           const message =
@@ -133,7 +157,7 @@ export default function DriverPickupPage() {
       },
       () => {
         setNotice(null);
-        setError("Location permission deny ho gayi.");
+        setError("Location permission was denied.");
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
@@ -171,16 +195,16 @@ export default function DriverPickupPage() {
         setOtpInput("");
         setNotice(
           status === "complete"
-            ? "Ride complete ho gayi. Board next ride ke liye ready hai."
-            : "Ride cancel ho gayi. Board next ride ke liye ready hai.",
+            ? "Ride completed. The board is ready for the next trip."
+            : "Ride cancelled. The board is ready for the next trip.",
         );
       } else {
         setRide(result.data);
         setOtpInput("");
         setNotice(
           action === "accept"
-            ? "Ride accept ho gayi. Ab rider se OTP lo."
-            : "OTP verify ho gayi. Trip officially start ho gayi.",
+            ? "Ride accepted. Ask the rider for the OTP."
+            : "OTP verified. The trip has started.",
         );
       }
     } catch (updateError) {
@@ -211,7 +235,7 @@ export default function DriverPickupPage() {
   return (
     <AppShell
       title="Driver board"
-      subtitle="Live pickup dashboard with OTP verification. Driver ko trip start karne ke liye rider OTP enter karni hogi."
+      subtitle="Live pickup dashboard with OTP verification. The rider OTP is required before the trip can start."
     >
       <section className="overflow-hidden rounded-[34px] border border-violet-100 bg-white p-3 shadow-[0_26px_80px_rgba(88,28,135,0.14)]">
         <RideMap
@@ -247,11 +271,11 @@ export default function DriverPickupPage() {
               label="Manual driver location"
               value={locationQuery}
               placeholder="Search your area, street, gali"
-              helper="GPS off hai to address select karke driver location set karo."
+              helper="If GPS is off, pick an address to set the driver location."
               onQueryChange={setLocationQuery}
               onPlaceSelect={async (place) => {
                 setLocationQuery(place.address);
-                setNotice("Manual driver location update kar rahe hain...");
+                setNotice("Updating manual driver location...");
                 setError(null);
 
                 try {
@@ -270,10 +294,14 @@ export default function DriverPickupPage() {
                   const result = await response.json();
 
                   if (!response.ok) {
+                    if (response.status === 404) {
+                      setNeedsSetup(true);
+                      router.push("/driver");
+                    }
                     throw new Error(result.message || "Location update failed");
                   }
 
-                  setNotice("Driver location update ho gayi.");
+                  setNotice("Driver location updated successfully.");
                   await loadRide();
                 } catch (locationError) {
                   const message =
@@ -286,12 +314,12 @@ export default function DriverPickupPage() {
               }}
             />
 
-            <Link
+            {/* <Link
               href="/driver"
               className="inline-flex justify-center rounded-2xl border border-violet-200 px-4 py-3 text-sm font-black text-violet-700 transition hover:bg-violet-50"
             >
               Edit driver setup
-            </Link>
+            </Link> */}
           </div>
 
           {error ? (
@@ -308,8 +336,20 @@ export default function DriverPickupPage() {
 
           {!loading && !ride ? (
             <div className="mt-5 rounded-[24px] border border-dashed border-violet-200 bg-violet-50 p-5 text-sm text-violet-900">
-              Abhi ride nahi hai. Driver online rakho, phir user ride book karega to request yahan dikhegi.
+              {needsSetup
+                ? "Driver profile is missing. Complete setup first, then ride requests will appear once you go online."
+                : "No ride is assigned yet. Stay online and the next request will appear here."}
             </div>
+          ) : null}
+
+          {needsSetup ? (
+            <button
+              type="button"
+              onClick={() => router.push("/driver")}
+              className="mt-4 w-full rounded-[22px] bg-violet-600 px-5 py-4 text-sm font-black text-white transition hover:bg-violet-700"
+            >
+              Complete driver setup
+            </button>
           ) : null}
         </section>
 
@@ -323,7 +363,7 @@ export default function DriverPickupPage() {
 
           {loading ? (
             <div className="mt-5 rounded-2xl bg-slate-50 p-4 text-sm text-slate-500">
-              Ride board load ho raha hai...
+              Loading driver board...
             </div>
           ) : null}
 
@@ -365,7 +405,7 @@ export default function DriverPickupPage() {
                 <div className="rounded-[26px] border border-violet-100 bg-white p-5">
                   <p className="text-sm font-black text-slate-950">Enter rider OTP to start trip</p>
                   <p className="mt-1 text-xs font-semibold text-slate-500">
-                    Rider app par jo OTP dikhegi, wahi yahan daalni hai.
+                    Enter the same OTP shown on the rider app.
                   </p>
                   <input
                     value={otpInput}

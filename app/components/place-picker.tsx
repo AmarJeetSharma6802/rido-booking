@@ -256,14 +256,14 @@ export default function PlacePicker({
             const place = await geocodeAddress(value, maptilerKey);
 
             if (!place) {
-              setManualError("Address coordinates nahi mile. Suggestion select karo.");
+              setManualError("Address coordinates were not found. Pick a suggestion.");
               return;
             }
 
             onPlaceSelect(place);
             setSuggestions([]);
           } catch {
-            setManualError("Address search failed. Suggestion select karo.");
+            setManualError("Address search failed. Pick a suggestion.");
           } finally {
             setManualLoading(false);
           }

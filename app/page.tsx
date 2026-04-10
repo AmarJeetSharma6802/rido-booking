@@ -2,15 +2,14 @@ import Image from "next/image";
 import Link from "next/link";
 
 const featureItems = [
-  "Login karo aur role choose karo",
-  "Pickup aur drop set karke ride book karo",
-  "Driver ride accept karke OTP verify kare",
-  "Trip ke baad review aur complaint bhejo",
+  "Login and choose a role",
+  "Set pickup and drop, then book a ride",
+  "Driver accepts the ride and verifies the OTP",
+  "Send a review or complaint after the trip",
 ];
 
 const quickLinks = [
   { href: "/auth", label: "Login / Register", primary: true },
-  { href: "/chooseRole", label: "Choose role" },
   { href: "/user", label: "Open user app" },
   { href: "/driver", label: "Open driver setup" },
   { href: "/driver/pickup", label: "Open driver board" },
@@ -79,9 +78,9 @@ export default function Page() {
               </p>
               <div className="mt-4 grid gap-3 text-sm font-semibold text-slate-700">
                 <p>1. Login / Register</p>
-                <p>2. Role choose karo</p>
-                <p>3. User ride book kare ya driver setup complete kare</p>
-                <p>4. Driver accept kare, OTP verify kare, trip start ho</p>
+                <p>2. Choose your role</p>
+                <p>3. Book a ride or complete driver setup</p>
+                <p>4. Driver accepts, verifies OTP, and starts the trip</p>
               </div>
             </div>
           </div>

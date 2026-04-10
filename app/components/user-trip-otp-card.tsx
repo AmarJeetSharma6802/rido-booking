@@ -14,7 +14,7 @@ export default function UserTripOtpCard({
       </p>
       <h3 className="mt-2 text-2xl font-black">Share this with driver</h3>
       <p className="mt-2 text-sm text-slate-600">
-        Driver ride start tabhi kar payega jab wo ye OTP enter karega.
+        The driver can start the ride only after entering this OTP.
       </p>
 
       <div className="mt-5 rounded-[28px] bg-gradient-to-br from-violet-700 to-fuchsia-500 p-6 text-white shadow-[0_22px_60px_rgba(88,28,135,0.24)]">
@@ -26,8 +26,8 @@ export default function UserTripOtpCard({
         </p>
         <p className="mt-4 text-sm text-violet-50">
           {isVerified
-            ? "Driver ne OTP verify kar li. Trip officially start ho chuki hai."
-            : "Ye OTP driver ko tab deni hai jab wo ride accept kar le."}
+            ? "The driver has verified the OTP. The trip is officially in progress."
+            : "Share this OTP with the driver after the ride is accepted."}
         </p>
       </div>
     </div>

@@ -17,8 +17,8 @@ export default function ChooseRolePage() {
               Choose how you want to ride today.
             </h1>
             <p className="mt-5 max-w-md text-sm leading-7 text-violet-50">
-              Rider app se pickup current location par hoga. Driver app mein
-              location online karke nearby ride accept kar sakte ho.
+              Riders can book from their current location, and drivers can go
+              online to accept nearby trips.
             </p>
           </div>
 
@@ -32,8 +32,8 @@ export default function ChooseRolePage() {
               </span>
               <h2 className="mt-5 text-3xl font-black">Book a ride</h2>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Current location set karo, destination choose karo, aur nearby
-                driver ko request bhejo.
+                Set your current location, choose a destination, and send a
+                booking request to a nearby driver.
               </p>
               <span className="mt-6 inline-flex rounded-full bg-slate-950 px-5 py-3 text-sm font-black text-white transition group-hover:bg-violet-700">
                 Continue as user
@@ -49,8 +49,8 @@ export default function ChooseRolePage() {
               </span>
               <h2 className="mt-5 text-3xl font-black">Go online</h2>
               <p className="mt-3 text-sm leading-6 text-slate-600">
-                Vehicle details fill karo, location online karo, aur assigned
-                pending rides pickup board par accept karo.
+                Complete the vehicle details, go online, and accept assigned
+                pending rides from the pickup board.
               </p>
               <span className="mt-6 inline-flex rounded-full bg-violet-600 px-5 py-3 text-sm font-black text-white transition group-hover:bg-violet-700">
                 Continue as driver

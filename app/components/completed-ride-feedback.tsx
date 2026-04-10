@@ -1,3 +1,5 @@
+"use client";
+
 interface FeedbackRide {
   pickup: string;
   destination: string;
@@ -26,9 +28,14 @@ interface CompletedRideFeedbackProps {
   complaintSubmitting: boolean;
   complaintMessage: string;
   complaintSent: boolean;
+  reviewModalOpen: boolean;
+  complaintModalOpen: boolean;
   onReviewRatingChange: (value: number) => void;
   onReviewReasonChange: (value: string) => void;
+  onDismissReview: () => void;
+  onReviewModalChange: (open: boolean) => void;
   onComplaintMessageChange: (value: string) => void;
+  onComplaintModalChange: (open: boolean) => void;
   onSubmitReview: () => void;
   onSubmitComplaint: () => void;
 }
@@ -42,47 +49,60 @@ export default function CompletedRideFeedback({
   complaintSubmitting,
   complaintMessage,
   complaintSent,
+  reviewModalOpen,
+  complaintModalOpen,
   onReviewRatingChange,
   onReviewReasonChange,
+  onDismissReview,
+  onReviewModalChange,
   onComplaintMessageChange,
+  onComplaintModalChange,
   onSubmitReview,
   onSubmitComplaint,
 }: CompletedRideFeedbackProps) {
+  const closeReviewWithDefaultRating = () => {
+    if (ride.hasReview || reviewSubmitting) {
+      onReviewModalChange(false);
+      return;
+    }
+
+    onReviewModalChange(false);
+    onDismissReview();
+  };
+
   return (
-    <section className="grid gap-6 xl:grid-cols-[1.05fr,0.95fr]">
-      <div className="rounded-[34px] border border-emerald-100 bg-white p-5 shadow-[0_26px_80px_rgba(16,185,129,0.14)]">
-        <div className="flex items-start justify-between gap-4">
-          <div>
-            <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-500">
-              Trip completed
-            </p>
-            <h3 className="mt-2 text-3xl font-black">How was your ride?</h3>
-            <p className="mt-2 text-sm text-slate-600">
-              Driver details aur trip summary yahan hai. Quick review se app aur real lagega.
-            </p>
-          </div>
-          <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-black text-emerald-700">
-            Rs. {ride.estimatedFare?.toFixed(0) ?? "-"}
-          </span>
-        </div>
+    <>
+      {reviewModalOpen && !ride.hasReview ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 p-4 sm:items-center">
+          <div className="w-full max-w-2xl rounded-[30px] border border-emerald-100 bg-white p-5 shadow-[0_30px_90px_rgba(15,23,42,0.24)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-emerald-500">
+                  Review ride
+                </p>
+                <h3 className="mt-2 text-2xl font-black">How was your trip?</h3>
+                <p className="mt-2 text-sm text-slate-600">
+                  Submit a review, or close this popup to send the default 5-star rating automatically.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={closeReviewWithDefaultRating}
+                disabled={reviewSubmitting}
+                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Close
+              </button>
+            </div>
 
-        <div className="mt-5 grid gap-3 rounded-[26px] bg-emerald-50 p-5 text-sm text-slate-700">
-          <p><span className="font-black text-slate-950">From:</span> {ride.pickup}</p>
-          <p><span className="font-black text-slate-950">To:</span> {ride.destination}</p>
-          <p><span className="font-black text-slate-950">Driver:</span> {ride.driver?.driverName ?? "-"}</p>
-          <p><span className="font-black text-slate-950">Vehicle:</span> {ride.driver?.vehicleName ?? "-"}</p>
-          <p><span className="font-black text-slate-950">Plate:</span> {ride.driver?.numberPlate ?? "-"}</p>
-          <p><span className="font-black text-slate-950">Distance:</span> {ride.estimatedDistanceKm?.toFixed(2) ?? "-"} km</p>
-        </div>
+            <div className="mt-5 rounded-[26px] bg-emerald-50 p-5 text-sm text-slate-700">
+              <p><span className="font-black text-slate-950">Driver:</span> {ride.driver?.driverName ?? "-"}</p>
+              <p className="mt-2"><span className="font-black text-slate-950">Vehicle:</span> {ride.driver?.vehicleName ?? "-"}</p>
+              <p className="mt-2"><span className="font-black text-slate-950">Route:</span> {ride.pickup} to {ride.destination}</p>
+            </div>
 
-        {ride.hasReview ? (
-          <div className="mt-5 rounded-[24px] border border-emerald-200 bg-emerald-50 p-4 text-sm font-semibold text-emerald-800">
-            Review already submit ho chuki hai. Aap turant next ride book kar sakte ho.
-          </div>
-        ) : (
-          <>
             <div className="mt-5">
-              <p className="text-sm font-black text-slate-900">Driver rating</p>
+              <p className="text-sm font-black text-slate-900">Rate this ride</p>
               <div className="mt-3 flex flex-wrap gap-3">
                 {[1, 2, 3, 4, 5].map((ratingValue) => (
                   <button
@@ -125,46 +145,64 @@ export default function CompletedRideFeedback({
             >
               {reviewSubmitting ? "Submitting review..." : "Submit review"}
             </button>
-          </>
-        )}
-      </div>
-
-      <div className="rounded-[34px] border border-amber-100 bg-white p-5 shadow-[0_26px_80px_rgba(217,119,6,0.12)]">
-        <p className="text-xs font-black uppercase tracking-[0.28em] text-amber-500">
-          Help and complaint
-        </p>
-        <h3 className="mt-2 text-3xl font-black">Raise an issue</h3>
-        <p className="mt-2 text-sm text-slate-600">
-          Agar overcharge, rude behavior, ya pickup-route issue hua ho to yahan likh do.
-        </p>
-
-        <div className="mt-5 rounded-[26px] bg-amber-50 p-5 text-sm text-slate-700">
-          <p><span className="font-black text-slate-950">Assigned driver:</span> {ride.driver?.driverName ?? "-"}</p>
-          <p className="mt-2"><span className="font-black text-slate-950">Vehicle:</span> {ride.driver?.vehicleName ?? "-"}</p>
-          <p className="mt-2"><span className="font-black text-slate-950">Number plate:</span> {ride.driver?.numberPlate ?? "-"}</p>
-        </div>
-
-        {complaintSent ? (
-          <div className="mt-5 rounded-[24px] border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
-            Complaint submit ho gayi. Team is ride ko manually review kar sakti hai.
           </div>
-        ) : null}
+        </div>
+      ) : null}
 
-        <textarea
-          value={complaintMessage}
-          onChange={(event) => onComplaintMessageChange(event.target.value)}
-          placeholder="Example: driver ne extra cash demand ki, wrong lane li, ya rude behavior tha..."
-          className="mt-5 min-h-40 w-full rounded-[24px] border border-amber-200 bg-white px-4 py-4 text-sm font-medium text-slate-900 outline-none transition focus:border-amber-500"
-        />
+      {complaintModalOpen ? (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-slate-950/55 p-4 sm:items-center">
+          <div className="w-full max-w-2xl rounded-[30px] border border-amber-100 bg-white p-5 shadow-[0_30px_90px_rgba(15,23,42,0.24)]">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.28em] text-amber-500">
+                  Complaint form
+                </p>
+                <h3 className="mt-2 text-2xl font-black">Report a trip issue</h3>
+                <p className="mt-2 text-sm text-slate-600">
+                  Share what went wrong during the trip.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => onComplaintModalChange(false)}
+                className="rounded-full border border-slate-200 px-4 py-2 text-xs font-black text-slate-600 transition hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
 
-        <button
-          onClick={onSubmitComplaint}
-          disabled={complaintSubmitting}
-          className="mt-5 w-full rounded-[22px] bg-slate-950 px-4 py-4 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
-        >
-          {complaintSubmitting ? "Submitting complaint..." : "Submit complaint"}
-        </button>
-      </div>
-    </section>
+            <textarea
+              value={complaintMessage}
+              onChange={(event) => onComplaintMessageChange(event.target.value)}
+              placeholder="Example: overcharge, unsafe driving, wrong route, or rude behavior."
+              className="mt-5 min-h-40 w-full rounded-[24px] border border-amber-200 bg-white px-4 py-4 text-sm font-medium text-slate-900 outline-none transition focus:border-amber-500"
+            />
+
+            {complaintSent ? (
+              <div className="mt-4 rounded-[24px] border border-amber-200 bg-amber-50 p-4 text-sm font-semibold text-amber-800">
+                Complaint submitted successfully.
+              </div>
+            ) : null}
+
+            <div className="mt-5 flex flex-col gap-3 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={() => onComplaintModalChange(false)}
+                className="rounded-[20px] border border-slate-200 px-4 py-3 text-sm font-black text-slate-700 transition hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={onSubmitComplaint}
+                disabled={complaintSubmitting}
+                className="rounded-[20px] bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:bg-slate-400"
+              >
+                {complaintSubmitting ? "Submitting..." : "Submit complaint"}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </>
   );
 }

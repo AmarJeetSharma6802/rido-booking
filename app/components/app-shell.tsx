@@ -8,6 +8,7 @@ import { usePathname } from "next/navigation";
 interface AppShellProps {
   title: string;
   subtitle: string;
+  sidebarActions?: React.ReactNode;
   children: React.ReactNode;
 }
 
@@ -27,7 +28,12 @@ const navItems = [
   { href: "/map", label: "Full Map" },
 ];
 
-export default function AppShell({ title, subtitle, children }: AppShellProps) {
+export default function AppShell({
+  title,
+  subtitle,
+  sidebarActions,
+  children,
+}: AppShellProps) {
   const pathname = usePathname();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [me, setMe] = useState<MeResponse["user"] | null>(null);
@@ -96,6 +102,15 @@ export default function AppShell({ title, subtitle, children }: AppShellProps) {
           );
         })}
       </nav>
+
+      {sidebarActions ? (
+        <div className="mt-6 rounded-[24px] border border-violet-100 bg-white p-4">
+          <p className="text-xs font-black uppercase tracking-[0.24em] text-violet-500">
+            Trip actions
+          </p>
+          <div className="mt-4 grid gap-3">{sidebarActions}</div>
+        </div>
+      ) : null}
 
       <div className="mt-6 rounded-[24px] border border-violet-100 bg-white p-4 text-sm text-slate-600">
         <p className="font-black text-slate-950">Signed in</p>

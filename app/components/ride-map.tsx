@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 
@@ -40,7 +40,11 @@ const OSM_FALLBACK_STYLE: maplibregl.StyleSpecification = {
   sources: {
     osm: {
       type: "raster",
-      tiles: ["https://a.basemaps.cartocdn.com/light_all/{z}/{x}/{y}.png"],
+      tiles: [
+        "https://a.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://b.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        "https://c.tile.openstreetmap.org/{z}/{x}/{y}.png",
+      ],
       tileSize: 256,
       attribution: "© OpenStreetMap contributors © CARTO",
     },
@@ -269,6 +273,126 @@ function interpolateCoordinate(coordinates: [number, number][], progress: number
   ] as [number, number];
 }
 
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function projectPoint(
+  point: MapPoint | null | undefined,
+  bounds: { minLat: number; maxLat: number; minLng: number; maxLng: number },
+) {
+  if (!hasCoordinates(point) || !isReasonableMapPoint(point)) {
+    return null;
+  }
+
+  const lngSpan = Math.max(bounds.maxLng - bounds.minLng, 0.01);
+  const latSpan = Math.max(bounds.maxLat - bounds.minLat, 0.01);
+
+  return {
+    x: clamp(12 + (((point.lng - bounds.minLng) / lngSpan) * 76), 10, 90),
+    y: clamp(88 - (((point.lat - bounds.minLat) / latSpan) * 76), 10, 90),
+  };
+}
+
+function SchematicMap({
+  pickup,
+  destination,
+  vehicle,
+  vehicleTarget,
+}: {
+  pickup?: MapPoint | null;
+  destination?: MapPoint | null;
+  vehicle?: MapPoint | null;
+  vehicleTarget?: MapPoint | null;
+}) {
+  const validPoints = [pickup, destination, vehicle, vehicleTarget].filter(
+    (point): point is MapPoint & { lat: number; lng: number } =>
+      hasCoordinates(point) && isReasonableMapPoint(point),
+  );
+
+  const bounds = validPoints.length
+    ? {
+        minLat: Math.min(...validPoints.map((point) => point.lat)) - 0.02,
+        maxLat: Math.max(...validPoints.map((point) => point.lat)) + 0.02,
+        minLng: Math.min(...validPoints.map((point) => point.lng)) - 0.02,
+        maxLng: Math.max(...validPoints.map((point) => point.lng)) + 0.02,
+      }
+    : {
+        minLat: DEFAULT_CENTER[1] - 0.1,
+        maxLat: DEFAULT_CENTER[1] + 0.1,
+        minLng: DEFAULT_CENTER[0] - 0.1,
+        maxLng: DEFAULT_CENTER[0] + 0.1,
+      };
+
+  const pickupProjected = projectPoint(pickup, bounds);
+  const destinationProjected = projectPoint(destination, bounds);
+  const vehicleProjected = projectPoint(vehicle, bounds);
+  const targetProjected = projectPoint(vehicleTarget, bounds);
+
+  return (
+    <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_left,_rgba(124,58,237,0.16),_transparent_34%),linear-gradient(135deg,_#f8fafc,_#eef2ff_48%,_#fdf2f8)]">
+      <svg
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full w-full"
+        aria-hidden="true"
+      >
+        <defs>
+          <pattern id="grid-pattern" width="8" height="8" patternUnits="userSpaceOnUse">
+            <path d="M 8 0 L 0 0 0 8" fill="none" stroke="rgba(124,58,237,0.12)" strokeWidth="0.4" />
+          </pattern>
+        </defs>
+        <rect width="100" height="100" fill="url(#grid-pattern)" />
+        {pickupProjected && destinationProjected ? (
+          <>
+            <line
+              x1={pickupProjected.x}
+              y1={pickupProjected.y}
+              x2={destinationProjected.x}
+              y2={destinationProjected.y}
+              stroke="white"
+              strokeWidth="3"
+              strokeLinecap="round"
+              opacity="0.95"
+            />
+            <line
+              x1={pickupProjected.x}
+              y1={pickupProjected.y}
+              x2={destinationProjected.x}
+              y2={destinationProjected.y}
+              stroke="#7c3aed"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+            />
+          </>
+        ) : null}
+        {vehicleProjected && targetProjected ? (
+          <line
+            x1={vehicleProjected.x}
+            y1={vehicleProjected.y}
+            x2={targetProjected.x}
+            y2={targetProjected.y}
+            stroke="#0f172a"
+            strokeWidth="1"
+            strokeDasharray="1.8 1.8"
+            strokeLinecap="round"
+            opacity="0.48"
+          />
+        ) : null}
+        {pickupProjected ? (
+          <circle cx={pickupProjected.x} cy={pickupProjected.y} r="2.1" fill="#7c3aed" stroke="white" strokeWidth="0.8" />
+        ) : null}
+        {destinationProjected ? (
+          <circle cx={destinationProjected.x} cy={destinationProjected.y} r="2.1" fill="#ec4899" stroke="white" strokeWidth="0.8" />
+        ) : null}
+        {vehicleProjected ? (
+          <circle cx={vehicleProjected.x} cy={vehicleProjected.y} r="2.5" fill="#0f172a" stroke="white" strokeWidth="0.9" />
+        ) : null}
+      </svg>
+    </div>
+  );
+}
+
 export default function RideMap({
   pickup,
   destination,
@@ -285,6 +409,7 @@ export default function RideMap({
   const animationFrameRef = useRef<number | null>(null);
   const displayedVehiclePositionRef = useRef<[number, number] | null>(null);
   const displayedVehicleKeyRef = useRef<string | null>(null);
+  const [showFallbackMap, setShowFallbackMap] = useState(true);
 
   useEffect(() => {
     if (!mapContainer.current || mapRef.current) return;
@@ -298,8 +423,28 @@ export default function RideMap({
 
     map.addControl(new maplibregl.NavigationControl(), "top-right");
     mapRef.current = map;
+    const fallbackTimer = window.setTimeout(() => {
+      if (!map.areTilesLoaded()) {
+        setShowFallbackMap(true);
+      }
+    }, 2600);
+    const handleData = () => {
+      if (map.areTilesLoaded()) {
+        setShowFallbackMap(false);
+        window.clearTimeout(fallbackTimer);
+      }
+    };
+    const handleError = () => {
+      setShowFallbackMap(true);
+    };
+
+    map.on("data", handleData);
+    map.on("error", handleError);
 
     return () => {
+      window.clearTimeout(fallbackTimer);
+      map.off("data", handleData);
+      map.off("error", handleError);
       if (animationFrameRef.current) {
         window.cancelAnimationFrame(animationFrameRef.current);
       }
@@ -309,6 +454,21 @@ export default function RideMap({
       map.remove();
       mapRef.current = null;
     };
+  }, []);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    const container = mapContainer.current;
+    if (!map || !container) return;
+
+    const resizeObserver = new ResizeObserver(() => {
+      map.resize();
+    });
+
+    resizeObserver.observe(container);
+    window.setTimeout(() => map.resize(), 0);
+
+    return () => resizeObserver.disconnect();
   }, []);
 
   useEffect(() => {
@@ -492,6 +652,14 @@ export default function RideMap({
   return (
     <div className={`relative overflow-hidden ${className ?? "min-h-[420px] rounded-3xl"}`}>
       <div ref={mapContainer} className="absolute inset-0" />
+      {showFallbackMap ? (
+        <SchematicMap
+          pickup={pickup}
+          destination={destination}
+          vehicle={vehicle}
+          vehicleTarget={vehicleTarget}
+        />
+      ) : null}
       <div className="pointer-events-none absolute left-4 top-4 rounded-full border border-white/80 bg-white/90 px-4 py-2 text-[11px] font-black uppercase tracking-[0.28em] text-violet-700 shadow-[0_18px_35px_rgba(15,23,42,0.12)] backdrop-blur">
         Live route
       </div>

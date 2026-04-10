@@ -17,6 +17,8 @@ export default function BecomeDriver() {
   const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
+  const [hasExistingProfile, setHasExistingProfile] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [serviceLocationQuery, setServiceLocationQuery] = useState("");
@@ -32,33 +34,66 @@ export default function BecomeDriver() {
   });
 
   useEffect(() => {
-    const loadCategories = async () => {
+    const loadDriverSetup = async () => {
       try {
-        const res = await fetch("/api/controllers/category");
-        const data = await res.json();
+        const [categoryResponse, driverResponse] = await Promise.all([
+          fetch("/api/controllers/category", { cache: "no-store" }),
+          fetch("/api/controllers/driver", { cache: "no-store" }),
+        ]);
+        const categoryResult = await categoryResponse.json();
+        const driverResult = await driverResponse.json();
 
-        if (!res.ok) {
-          throw new Error(data.message || "Categories load nahi hui");
+        if (!categoryResponse.ok) {
+          throw new Error(categoryResult.message || "Categories could not be loaded");
         }
 
-        setCategories(data.categories ?? []);
+        setCategories(categoryResult.categories ?? []);
 
-        if (data.categories?.length) {
+        if (categoryResult.categories?.length) {
           setForm((current) => ({
             ...current,
-            categoryId: current.categoryId || data.categories[0].id,
+            categoryId: current.categoryId || categoryResult.categories[0].id,
           }));
+        }
+
+        if (driverResponse.ok && driverResult.data) {
+          setHasExistingProfile(true);
+          setForm((current) => ({
+            ...current,
+            categoryId:
+              driverResult.data.categoryId ||
+              current.categoryId ||
+              categoryResult.categories?.[0]?.id ||
+              "",
+            vehicleName: driverResult.data.vehicleName ?? "",
+            numberPlate: driverResult.data.numberPlate ?? "",
+            driverName: driverResult.data.driverName ?? "",
+            latitude:
+              typeof driverResult.data.latitude === "number"
+                ? driverResult.data.latitude
+                : null,
+            longitude:
+              typeof driverResult.data.longitude === "number"
+                ? driverResult.data.longitude
+                : null,
+            driverImage: null,
+          }));
+          setNotice(
+            "An existing driver profile was found. Update the details and go online again.",
+          );
         }
       } catch (categoryError) {
         const message =
           categoryError instanceof Error
             ? categoryError.message
-            : "Categories load nahi hui";
+            : "Categories could not be loaded";
         setError(message);
+      } finally {
+        setProfileLoading(false);
       }
     };
 
-    loadCategories();
+    loadDriverSetup();
   }, []);
 
   const handleChange = (
@@ -75,11 +110,11 @@ export default function BecomeDriver() {
 
   const useCurrentLocation = () => {
     setError(null);
-    setNotice("Driver location permission maang rahe hain...");
+    setNotice("Requesting driver location...");
 
     if (!navigator.geolocation) {
       setNotice(null);
-      setError("Browser geolocation support nahi kar raha.");
+      setError("This browser does not support geolocation.");
       return;
     }
 
@@ -90,11 +125,11 @@ export default function BecomeDriver() {
           latitude: position.coords.latitude,
           longitude: position.coords.longitude,
         }));
-        setNotice("Driver location set ho gayi.");
+        setNotice("Driver location has been set.");
       },
       () => {
         setNotice(null);
-        setError("Location deny ho gayi. Driver matching ke liye location allow karo.");
+        setError("Location permission was denied. Allow location for driver matching.");
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
@@ -102,12 +137,12 @@ export default function BecomeDriver() {
 
   const handleSubmit = async () => {
     if (!form.categoryId || !form.driverName || !form.vehicleName) {
-      setError("Driver name, vehicle name aur category required hai.");
+      setError("Driver name, vehicle name, and category are required.");
       return;
     }
 
     if (form.latitude === null || form.longitude === null) {
-      setError("Pehle driver location set karo.");
+      setError("Set the driver location first.");
       return;
     }
 
@@ -137,16 +172,19 @@ export default function BecomeDriver() {
       const result = await res.json();
 
       if (!res.ok) {
-        throw new Error(result.message || "Driver profile create nahi hua");
+        throw new Error(result.message || "Driver profile could not be created");
       }
 
-      setNotice("Driver profile ready hai. Pickup board open ho raha hai...");
+      setHasExistingProfile(true);
+      setNotice(
+        result.message || "Driver profile is ready. Opening the driver board...",
+      );
       router.push("/driver/pickup");
     } catch (submitError) {
       const message =
         submitError instanceof Error
           ? submitError.message
-          : "Driver profile create nahi hua";
+          : "Driver profile could not be created";
       setError(message);
     } finally {
       setLoading(false);
@@ -167,8 +205,8 @@ export default function BecomeDriver() {
             Go online with a cleaner driver dashboard.
           </h3>
           <p className="mt-4 text-sm leading-7 text-violet-50">
-            Setup complete karne ke baad `/driver/pickup` board par assigned ride,
-            map, OTP verification, aur live route sab ek jagah dikhega.
+            After setup is complete, the `/driver/pickup` board will show the
+            assigned ride, map, OTP verification, and live route in one place.
           </p>
         </div>
 
@@ -248,7 +286,7 @@ export default function BecomeDriver() {
                 label="Driver service location"
                 value={serviceLocationQuery}
                 placeholder="Search your street, gali, or area"
-                helper="GPS off hai to address select karke service location set karo."
+                helper="If GPS is off, pick an address to set the service location."
                 onQueryChange={setServiceLocationQuery}
                 onPlaceSelect={(place) => {
                   setServiceLocationQuery(place.address);
@@ -257,17 +295,21 @@ export default function BecomeDriver() {
                     latitude: place.lat,
                     longitude: place.lng,
                   }));
-                  setNotice("Driver service location set ho gayi.");
+                  setNotice("Driver service location has been set.");
                 }}
               />
             </div>
 
             <button
               onClick={handleSubmit}
-              disabled={loading}
+              disabled={loading || profileLoading}
               className="rounded-[22px] bg-violet-600 px-5 py-4 text-sm font-black text-white transition hover:bg-violet-700 disabled:cursor-not-allowed disabled:bg-violet-300 sm:col-span-2"
             >
-              {loading ? "Saving driver..." : "Save and go online"}
+              {loading || profileLoading
+                ? "Saving driver..."
+                : hasExistingProfile
+                  ? "Update and go online"
+                  : "Save and go online"}
             </button>
           </div>
         </div>

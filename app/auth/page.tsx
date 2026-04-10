@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 type Mode = "login" | "register" | "verify-otp";
@@ -8,6 +8,7 @@ type Mode = "login" | "register" | "verify-otp";
 export default function AuthForm() {
   const [mode, setMode] = useState<Mode>("login");
   const [loading, setLoading] = useState(false);
+  const [authReason, setAuthReason] = useState<string | null>(null);
 
   const [form, setForm] = useState({
     name: "",
@@ -17,6 +18,11 @@ export default function AuthForm() {
   });
 
   const router = useRouter();
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    setAuthReason(params.get("reason"));
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -94,6 +100,11 @@ export default function AuthForm() {
         </section>
 
         <section className="rounded-[38px] border border-violet-100 bg-white p-6 shadow-[0_30px_90px_rgba(88,28,135,0.16)]">
+          {authReason === "login-required" ? (
+            <div className="mb-5 rounded-2xl border border-violet-200 bg-violet-50 p-4 text-sm font-semibold text-violet-700">
+              Please login first to continue booking your ride.
+            </div>
+          ) : null}
           <p className="text-xs font-black uppercase tracking-[0.24em] text-violet-500">
             {mode === "login" && "Welcome back"}
             {mode === "register" && "Create account"}

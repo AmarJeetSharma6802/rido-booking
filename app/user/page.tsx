@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import AppShell from "@/app/components/app-shell";
 import PlacePicker from "@/app/components/place-picker";
 import RideMap, { MapPoint } from "@/app/components/ride-map";
@@ -59,15 +60,15 @@ const defaultDestination: DestinationOption = {
 };
 
 const reviewReasonOptions = [
-  { value: "late_arrival", label: "Driver late aya" },
+  { value: "other", label: "Smooth ride / no issue" },
+  { value: "late_arrival", label: "Driver arrived late" },
   { value: "wrong_pickup", label: "Wrong pickup point" },
   { value: "route_issue", label: "Route issue" },
   { value: "rude_behavior", label: "Rude behavior" },
   { value: "unsafe_driving", label: "Unsafe driving" },
   { value: "driving_on_call", label: "Driving while on call" },
-  { value: "vehicle_not_clean", label: "Vehicle clean nahi tha" },
+  { value: "vehicle_not_clean", label: "Vehicle was not clean" },
   { value: "extra_money_demand", label: "Extra money demand" },
-  { value: "other", label: "Other issue" },
 ] as const;
 
 function toMapPoint(
@@ -131,6 +132,7 @@ function vehicleIcon(name: string) {
 }
 
 export default function UserRidePage() {
+  const router = useRouter();
   const [categories, setCategories] = useState<Category[]>([]);
   const [ride, setRide] = useState<ActiveRide | null>(null);
   const [completedRide, setCompletedRide] = useState<ActiveRide | null>(null);
@@ -142,9 +144,11 @@ export default function UserRidePage() {
   const [notice, setNotice] = useState<string | null>(null);
   const [reviewRating, setReviewRating] = useState(5);
   const [reviewReason, setReviewReason] =
-    useState<(typeof reviewReasonOptions)[number]["value"]>("late_arrival");
+    useState<(typeof reviewReasonOptions)[number]["value"]>("other");
   const [complaintMessage, setComplaintMessage] = useState("");
   const [complaintSent, setComplaintSent] = useState(false);
+  const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [complaintModalOpen, setComplaintModalOpen] = useState(false);
   const [pickup, setPickup] = useState({
     address: "",
     lat: null as number | null,
@@ -207,14 +211,18 @@ export default function UserRidePage() {
 
   useEffect(() => {
     if (!completedRideId) {
+      setReviewModalOpen(false);
+      setComplaintModalOpen(false);
       return;
     }
 
     setReviewRating(5);
-    setReviewReason("late_arrival");
+    setReviewReason("other");
     setComplaintMessage("");
     setComplaintSent(false);
-  }, [completedRideId]);
+    setComplaintModalOpen(false);
+    setReviewModalOpen(!completedRide?.hasReview);
+  }, [completedRide?.hasReview, completedRideId]);
 
   const routeDistanceKm =
     pickup.lat && pickup.lng
@@ -257,7 +265,7 @@ export default function UserRidePage() {
 
     if (!navigator.geolocation) {
       setNotice(null);
-      setError("Browser geolocation support nahi kar raha.");
+      setError("This browser does not support geolocation.");
       return;
     }
 
@@ -269,11 +277,11 @@ export default function UserRidePage() {
           lng: position.coords.longitude,
         });
         setPickupQuery("Current location");
-        setNotice("Current pickup location set ho gayi.");
+        setNotice("Current pickup location has been set.");
       },
       () => {
         setNotice(null);
-        setError("Location permission deny ho gayi. Address select ya current location allow karo.");
+        setError("Location permission was denied. Select an address or allow current location.");
       },
       { enableHighAccuracy: true, timeout: 10000 },
     );
@@ -281,12 +289,12 @@ export default function UserRidePage() {
 
   const requestRide = async () => {
     if (!categoryId) {
-      setError("Ride type select karo.");
+      setError("Select a ride type.");
       return;
     }
 
     if (!pickup.lat || !pickup.lng) {
-      setError("Pickup address select karo ya current location allow karo.");
+      setError("Select a pickup address or allow current location.");
       return;
     }
 
@@ -314,16 +322,24 @@ export default function UserRidePage() {
 
       const result = await response.json();
 
+      if (response.status === 401) {
+        setNotice("Please login to book a ride. Redirecting to login...");
+        window.setTimeout(() => {
+          router.push("/auth?reason=login-required");
+        }, 900);
+        return;
+      }
+
       if (!response.ok) {
-        throw new Error(result.message || "Ride create nahi hui");
+        throw new Error(result.message || "Ride could not be created");
       }
 
       setRide(result.data);
       setCompletedRide(null);
-      setNotice("Ride request send ho gayi. OTP ab ready hai, driver accept ke baad isi se verify karega.");
+      setNotice("Ride request sent successfully.");
     } catch (requestError) {
       const message =
-        requestError instanceof Error ? requestError.message : "Ride create nahi hui";
+        requestError instanceof Error ? requestError.message : "Ride could not be created";
       setError(message);
     } finally {
       setSubmitting(false);
@@ -352,24 +368,32 @@ export default function UserRidePage() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "Ride cancel nahi hui");
+        throw new Error(result.message || "Ride could not be cancelled");
       }
 
       setRide(null);
-      setNotice("Ride cancel ho gayi.");
+      setNotice("Ride cancelled successfully.");
     } catch (cancelError) {
       const message =
-        cancelError instanceof Error ? cancelError.message : "Ride cancel nahi hui";
+        cancelError instanceof Error ? cancelError.message : "Ride could not be cancelled";
       setError(message);
     } finally {
       setSubmitting(false);
     }
   };
 
-  const submitReview = async () => {
-    if (!completedRide) {
+  const submitReview = async (options?: {
+    rating?: number;
+    reason?: (typeof reviewReasonOptions)[number]["value"];
+    silent?: boolean;
+  }) => {
+    const rideToReview = completedRide;
+    if (!rideToReview) {
       return;
     }
+
+    const ratingToSubmit = options?.rating ?? reviewRating;
+    const reasonToSubmit = options?.reason ?? reviewReason;
 
     setReviewSubmitting(true);
     setError(null);
@@ -381,26 +405,29 @@ export default function UserRidePage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          rideId: completedRide.id,
-          categoryId: completedRide.categoryId,
-          rating: reviewRating,
-          reason: reviewReason,
+          rideId: rideToReview.id,
+          categoryId: rideToReview.categoryId,
+          rating: ratingToSubmit,
+          reason: reasonToSubmit,
         }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "Review submit nahi hui");
+        throw new Error(result.message || "Review could not be submitted");
       }
 
       setCompletedRide((currentRide) =>
         currentRide ? { ...currentRide, hasReview: true } : currentRide,
       );
-      setNotice("Review save ho gayi. Thanks, isse ride quality better hogi.");
+      setReviewModalOpen(false);
+      if (!options?.silent) {
+        setNotice("Review submitted successfully.");
+      }
     } catch (reviewError) {
       const message =
-        reviewError instanceof Error ? reviewError.message : "Review submit nahi hui";
+        reviewError instanceof Error ? reviewError.message : "Review could not be submitted";
       setError(message);
     } finally {
       setReviewSubmitting(false);
@@ -409,12 +436,12 @@ export default function UserRidePage() {
 
   const submitComplaint = async () => {
     if (!completedRide?.driver?.id) {
-      setError("Driver information missing hai.");
+      setError("Driver information is missing.");
       return;
     }
 
     if (!complaintMessage.trim()) {
-      setError("Complaint message likho.");
+      setError("Enter a complaint message.");
       return;
     }
 
@@ -436,27 +463,51 @@ export default function UserRidePage() {
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.message || "Complaint submit nahi hui");
+        throw new Error(result.message || "Complaint could not be submitted");
       }
 
       setComplaintMessage("");
       setComplaintSent(true);
-      setNotice("Complaint team ko send ho gayi.");
+      setComplaintModalOpen(false);
+      setNotice("Complaint sent successfully.");
     } catch (complaintError) {
       const message =
         complaintError instanceof Error
           ? complaintError.message
-          : "Complaint submit nahi hui";
+          : "Complaint could not be submitted";
       setError(message);
     } finally {
       setComplaintSubmitting(false);
     }
   };
 
+  const sidebarActions =
+    !ride && completedRide ? (
+      <>
+        {!completedRide.hasReview ? (
+          <button
+            type="button"
+            onClick={() => setReviewModalOpen(true)}
+            className="rounded-[20px] bg-emerald-600 px-4 py-3 text-sm font-black text-white transition hover:bg-emerald-700"
+          >
+            Open review
+          </button>
+        ) : null}
+        <button
+          type="button"
+          onClick={() => setComplaintModalOpen(true)}
+          className="rounded-[20px] bg-slate-950 px-4 py-3 text-sm font-black text-white transition hover:bg-slate-800"
+        >
+          Open complaint
+        </button>
+      </>
+    ) : null;
+
   return (
     <AppShell
       title="Book your ride"
       subtitle="Map on top, live trip flow, driver acceptance plus OTP start, and completed trip feedback in one clean rider app."
+      sidebarActions={sidebarActions}
     >
       <section className="overflow-hidden rounded-[34px] border border-violet-100 bg-white p-3 shadow-[0_26px_80px_rgba(88,28,135,0.14)]">
         <RideMap
@@ -504,7 +555,7 @@ export default function UserRidePage() {
               label="Pickup"
               value={pickupQuery}
               placeholder="Search pickup street, gali, landmark"
-              helper="Suggestion select karo ya Use this address dabao."
+              helper="Select a suggestion or use the manual address button."
               onQueryChange={(value) => {
                 setPickupQuery(value);
                 setPickup((current) => ({ ...current, address: value }));
@@ -530,7 +581,7 @@ export default function UserRidePage() {
               label="Destination"
               value={destinationQuery}
               placeholder="Search destination street, gali, landmark"
-              helper="Real street-level suggestions NCR area ke liye prefer kiye ja rahe hain."
+              helper="Street-level suggestions are prioritized for the NCR area."
               onQueryChange={setDestinationQuery}
               onPlaceSelect={(place) => {
                 setDestinationQuery(place.address);
@@ -643,6 +694,7 @@ export default function UserRidePage() {
 
       {!ride && completedRide ? (
         <CompletedRideFeedback
+          key={completedRide.id}
           ride={completedRide}
           reviewRating={reviewRating}
           reviewReason={reviewReason}
@@ -651,11 +703,22 @@ export default function UserRidePage() {
           complaintSubmitting={complaintSubmitting}
           complaintMessage={complaintMessage}
           complaintSent={complaintSent}
+          reviewModalOpen={reviewModalOpen}
+          complaintModalOpen={complaintModalOpen}
           onReviewRatingChange={setReviewRating}
           onReviewReasonChange={(value) =>
             setReviewReason(value as (typeof reviewReasonOptions)[number]["value"])
           }
+          onReviewModalChange={setReviewModalOpen}
+          onDismissReview={() =>
+            submitReview({
+              rating: 5,
+              reason: "other",
+              silent: true,
+            })
+          }
           onComplaintMessageChange={setComplaintMessage}
+          onComplaintModalChange={setComplaintModalOpen}
           onSubmitReview={submitReview}
           onSubmitComplaint={submitComplaint}
         />
