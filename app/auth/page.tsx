@@ -55,26 +55,57 @@ export default function AuthForm() {
 
       if (mode === "register") {
         setMode("verify-otp");
+        setForm((current) => ({
+          ...current,
+          name: "",
+          password: "",
+          otp: "",
+        }));
+        return;
       }
 
       if (mode === "verify-otp") {
+        setForm({
+          name: "",
+          email: "",
+          password: "",
+          otp: "",
+        });
         router.push("/chooseRole");
+        return;
       }
 
       if (mode === "login") {
+        if (typeof window !== "undefined") {
+          const loginName =
+            typeof data.user?.name === "string" && data.user.name.trim().length
+              ? data.user.name.trim()
+              : typeof data.user?.email === "string"
+                ? data.user.email.split("@")[0]
+                : "";
+
+          if (loginName) {
+            const storageKey =
+              data.user?.role === "driver"
+                ? "navbar_driver_name"
+                : "navbar_user_name";
+            window.localStorage.setItem(storageKey, loginName);
+          }
+        }
+
+        setForm({
+          name: "",
+          email: "",
+          password: "",
+          otp: "",
+        });
         if (data.user?.role === "driver") {
           router.push("/driver/pickup");
         } else {
           router.push("/user");
         }
+        return;
       }
-
-      setForm({
-        name: "",
-        email: "",
-        password: "",
-        otp: "",
-      });
     } catch (error) {
       console.error("Auth submit error:", error);
       alert("Server response parse nahi ho paya. Console mein exact error check karo.");
