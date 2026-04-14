@@ -12,7 +12,7 @@ export async function POST(req:Request){
 
     if(action === "register"){
         if(!name || !email || !password){
-        return NextResponse.json({message:"All fiedls are required"})
+        return NextResponse.json({message:"All fields are required"},{status:400})
         }
 
         const exists = await prisma.user.findUnique({ where: { email } });

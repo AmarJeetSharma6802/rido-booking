@@ -30,6 +30,28 @@ export default function AuthForm() {
 
   const handleSubmit = async () => {
     const action = mode;
+
+    if (mode === "register") {
+      if (!form.name.trim() || !form.email.trim() || !form.password.trim()) {
+        alert("Fill all register fields first.");
+        return;
+      }
+    }
+
+    if (mode === "login") {
+      if (!form.email.trim() || !form.password.trim()) {
+        alert("Email and password are required.");
+        return;
+      }
+    }
+
+    if (mode === "verify-otp") {
+      if (!form.email.trim() || !form.otp.trim()) {
+        alert("Email and OTP are required.");
+        return;
+      }
+    }
+
     setLoading(true);
 
     try {
