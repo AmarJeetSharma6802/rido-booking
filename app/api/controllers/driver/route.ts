@@ -195,12 +195,8 @@ export async function PATCH(req: Request): Promise<Response> {
     const vehicleName = formData.get("vehicleName") as string;
     const driverImage = formData.get("driverImage");
 
-    const updateData: {
-      driverName?: string;
-      numberPlate?: string;
-      vehicleName?: string;
-      driverImage?: string;
-    } = {};
+    const updateData: {driverName?: string;numberPlate?: string;vehicleName?: string;driverImage?: string;} = {};
+
     if (driverName) updateData.driverName = driverName;
     if (numberPlate) updateData.numberPlate = numberPlate;
     if (vehicleName) updateData.vehicleName = vehicleName;

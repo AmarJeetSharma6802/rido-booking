@@ -173,3 +173,15 @@ model Complaint {
 
 // npx prisma migrate dev --name init
 // npx prisma generate
+
+// autocannon -c 50 -d 10 https://rido-booking.vercel.app/driver/pickup
+
+// Prisma Accelerate
+
+
+// Kaise detect karte hain companies?
+
+// Use karte hain:
+
+// Cloudflare
+// AWS WAF
